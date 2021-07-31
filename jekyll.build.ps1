@@ -39,7 +39,7 @@ task serve stop, remove, {
         Push-Location $rootdir/src
         #serve
         docker run -d --name $servecontainername --volume="$($PWD):/srv/jekyll" --volume="$PWD/vendor/bundle:/usr/local/bundle" --env JEKYLL_ENV=development -p 4000:4000 jekyll/jekyll:$jekyllversion jekyll serve
-
+        
         Pop-Location
     }
     else {
@@ -49,4 +49,8 @@ task serve stop, remove, {
 
 task run serve
 
-task . serve
+task surf {
+    Start-Process Chrome "http://localhost:4000"
+}
+
+task . serve, surf
