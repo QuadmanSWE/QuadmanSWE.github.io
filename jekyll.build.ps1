@@ -5,8 +5,8 @@ param(
 )
 $rootdir = git rev-parse --show-toplevel
 task new {
-    mkdir src -ea 0 | out-null
-    push-location $rootdir/src
+    mkdir docs -ea 0 | out-null
+    push-location $rootdir/docs
 
     #new
     docker run --rm -it --volume="$($PWD):/srv/jekyll" --env JEKYLL_ENV=production jekyll/jekyll:4 jekyll new . --force
@@ -15,8 +15,8 @@ task new {
 }
 
 task build {
-    if (test-path .\src) {
-        Push-Location $rootdir/src
+    if (test-path .\docs) {
+        Push-Location $rootdir/docs
         #build
         docker run --rm -it --volume="$($PWD):/srv/jekyll" --volume="$PWD/vendor/bundle:/usr/local/bundle" --env JEKYLL_ENV=production jekyll/jekyll:$jekyllversion jekyll build
         Pop-Location
@@ -35,8 +35,8 @@ task stop {
 }
 
 task serve stop, remove, {
-    if (test-path .\src) {
-        Push-Location $rootdir/src
+    if (test-path .\docs) {
+        Push-Location $rootdir/docs
         #serve
         docker run -d --name $servecontainername --volume="$($PWD):/srv/jekyll" --volume="$PWD/vendor/bundle:/usr/local/bundle" --env JEKYLL_ENV=development -p 4000:4000 jekyll/jekyll:$jekyllversion jekyll serve
 
@@ -56,7 +56,7 @@ task surf {
 task newpost {
     $df = get-date -Format 'yyyy-MM-dd'
     $postname = read-host -Prompt 'What would you like to bestow upon your very limited social circle today?'
-    New-Item "$rootdir/src/_posts/$df-$($postname.Replace(' ','-').ToLower()).md" | psedit
+    New-Item "$rootdir/docs/_posts/$df-$($postname.Replace(' ','-').ToLower()).md" | psedit
 }
 
 task . serve, surf
