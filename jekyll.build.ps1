@@ -39,7 +39,7 @@ task serve stop, remove, {
         Push-Location $rootdir/src
         #serve
         docker run -d --name $servecontainername --volume="$($PWD):/srv/jekyll" --volume="$PWD/vendor/bundle:/usr/local/bundle" --env JEKYLL_ENV=development -p 4000:4000 jekyll/jekyll:$jekyllversion jekyll serve
-        
+
         Pop-Location
     }
     else {
@@ -51,6 +51,12 @@ task run serve
 
 task surf {
     Start-Process Chrome "http://localhost:4000"
+}
+
+task newpost {
+    $df = get-date -Format 'yyyy-MM-dd'
+    $postname = read-host -Prompt 'What would you like to bestow upon your very limited social circle today?'
+    New-Item "$rootdir/src/_posts/$df-$($postname.Replace(' ','-').ToLower()).md" | psedit
 }
 
 task . serve, surf
