@@ -196,7 +196,7 @@ Add-PodeRoute -Method Get -Path '/RestoreDatabase' -scriptblock {
 
 You can use .pode files to get more advanced and dynamic behavior.
 
-You could either start from [this reference base image](https://github.com/dfinke/PowerShellMicroservice) for pode in docker and write your own applicaiton or extend upon mine by layering your docker commands on top of my image. The reference image was [initially conceptualized by Doug Finke](https://github.com/dfinke/PowerShellMicroservice)
+You could either start from [this reference base image](https://github.com/dfinke/PowerShellMicroservice) for pode in docker and write your own applicaiton or extend upon mine by layering your docker commands on top of my image. The reference image was [initially conceptualized by Doug Finke](https://dfinke.github.io/powershell,%20docker,%20pode/2020/08/01/PowerShell-Microservice-Hello-World.html)
 
 
 ### Why not all of dbatools?
