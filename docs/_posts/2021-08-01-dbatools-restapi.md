@@ -41,7 +41,7 @@ My idea then became to take back the ownership of proper database handling for t
 
 [Enter Pode](https://badgerati.github.io/Pode/): A module for writing RESTful APIs (and more) with PowerShell.
 
-[Featuring dbatools](docs.dbatools.io) to interact with the database
+[Featuring dbatools](https://docs.dbatools.io) to interact with the database
 
 [All running on docker](https://dfinke.github.io/powershell,%20docker,%20pode/2020/08/01/PowerShell-Microservice-Hello-World.html), so that there is no new dependency while testing locally or in a build pipeline.
 
