@@ -57,7 +57,7 @@ So what we had to do was to override the automatic creation of the network profi
 
 While navigating Azure I like to use out-gridview, that way I can interact effortlessly with the intermediate objects and save my code for later.
 
-``` Powershell
+``` powershell
 #Gets the tenant I need from all my tenants
 $tenant = get-aztenant | out-gridview -passthru 
 Set-AzContext -Tenant $tenant.id
@@ -79,7 +79,7 @@ $snet = $vnet.Subnets | out-gridview -PassThru
 ### Converting pscustomobject to json that Azure cli can use
 Here is how I like to format my objects and transform them to json that az rest can use
 
-``` Powershell
+``` powershell
 Function Get-AzRestJson {
     [CmdletBinding()]
     param (
@@ -98,7 +98,7 @@ For example the object I will be deploying will have a structure which for me is
 
 $vnet and $snet are taken from the code about where we navigated from the tenant to the subscription, resource groups, virtual networks and their subnets.
 
-``` Powershell
+``` powershell
 $bodyobject = @{
     location   = $vnet.Location
     properties = @{
@@ -127,7 +127,7 @@ $bodyobject = @{
 
 Allright, so now we can get our request body and put all this to work and finally enjoy our DNS-forwarding
 
-``` Powershell
+``` powershell
 
 $newprofilename = "aci-network-profile-$($snet.Name)" #80 chars is too long let us just use the subnet name
 $apiversion = '2020-11-01'
@@ -147,7 +147,7 @@ az rest --method put --url $requesturi --body $requestbody --headers $requesthea
 
 You can of course use the rest api to search (get) and remove (delete) too!
 
-``` Powershell
+``` powershell
 #look for network profile
 az rest --method get --url $requesturi
 
@@ -159,7 +159,7 @@ az rest --method delete --url $requesturi
 
 Now that I have a network profile for my container instance that doesn't fail validation (thanks Microsoft), I can finally do the comparitably trivial task of spinning up the container.
 
-``` Powershell
+``` powershell
 #Region create the container instance
 # source: https://github.com/whiteducksoftware/az-dns-forwarder
 # iwr https://raw.githubusercontent.com/whiteducksoftware/az-dns-forwarder/master/LICENSE | select -expand content
