@@ -1,7 +1,8 @@
 #Requires -Module invokebuild
 param(
-    $jekyllversion = '4',
-    $servecontainername = 'jekyll-serve'
+    [parameter()]$jekyllversion = '4',
+    [parameter()]$servecontainername = 'jekyll-serve',
+    [parameter()][string]$postname = ''
 )
 $rootdir = git rev-parse --show-toplevel
 task new {
@@ -27,11 +28,11 @@ task build {
 }
 
 task remove stop, {
-    icm {docker rm $servecontainername } -ea 0
+    icm { docker rm $servecontainername } -ea 0
 }
 
 task stop {
-    icm {docker stop $servecontainername } -ea 0  
+    icm { docker stop $servecontainername } -ea 0  
 }
 
 task serve stop, remove, {
@@ -55,9 +56,17 @@ task surf {
 
 task newpost {
     $df = get-date -Format 'yyyy-MM-dd'
-    $postname = read-host -Prompt 'What would you like to bestow upon your very limited social circle today?'
-    $p = New-Item "$rootdir/docs/_posts/$df-$($postname.Replace(' ','-').ToLower()).md" 
-    code $p
+    if ($postname -eq '') {
+        $postname = read-host -Prompt 'What would you like to bestow upon your very limited social circle today?'
+    }
+    $postfile = New-Item "$rootdir/docs/_posts/$df-$($postname.Replace(' ','-').ToLower()).md" 
+    @"
+---
+title: $postname
+published: true
+---
+"@ | out-file $postfile
+    code $postfile
 }
 
 task . serve, surf
