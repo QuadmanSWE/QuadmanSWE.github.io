@@ -1,5 +1,5 @@
 ---
-title: Quick guide to kuberenets on raspberry pi.
+title: Quick guide to kuberenets on raspberry pi
 published: true
 ---
 
@@ -26,11 +26,11 @@ We will be using [k3s from rancher](https://k3s.io/) as our kubernetes distro.
   - [Things you can do for fun and profit (extra credit and homework)](#things-you-can-do-for-fun-and-profit-extra-credit-and-homework)
     - [You own CA with your proper let's encrypt cert](#you-own-ca-with-your-proper-lets-encrypt-cert)
     - [Private container registry](#private-container-registry)
-    - [](#)
+    - [Service meshes - Linkerd specifically](#service-meshes---linkerd-specifically)
 
 ## Cluster infrastructure set up
 
-I bought the two rasberry pi, usb-c cables for power, some cute ebony and ivory cases and micro SD-cards from [https://www.inet.se/](Inet.se) (shout out to their webshop, expect more business from me).
+I bought the two rasberry pi, usb-c cables for power, some cute [ebony](https://www.inet.se/produkt/1974085/okdo-raspberry-pi-4-case-black) and [ivory](https://www.inet.se/produkt/1974087/okdo-raspberry-pi-4-case-clear) cases and micro SD-cards from [https://www.inet.se/](Inet.se) (shout out to their webshop, expect more business from me).
 
 ![](../assets/k3s-shopping-list.png)
 
@@ -38,15 +38,17 @@ Once the package showed up, me and [Algaron87](https://twitter.com/Algaron87) un
 
 ### Unpacking and bootstrapping rasbian
 
-We unpacked the micro SD-cards and began flashing over a rasbian image that you can download here: https://downloads.raspberrypi.org/
+We unpacked the micro SD-cards and began flashing over a rasbian image that you can [download here.](https://downloads.raspberrypi.org/)
 
 The one we chose for the occation was ["2020-08-20-raspios-buster-arm64-lite.zip"](https://downloads.raspberrypi.org/raspios_arm64/images/raspios_arm64-2020-08-24/2020-08-20-raspios-buster-arm64.zip).
 
-We mounted the image and added an empty ssh file to the image before copying over to show that we wanted to use ssh in the future. We killed the ability to log on with password in the future in the sshd_config file.
+We mounted the image in windows and added an empty ssh file to the image before copying over to show that we wanted to use ssh in the future. (We killed the ability to log on with password in the future in the sshd_config file.)
 
 I am using an old mp3 player ascesory as a docking station for micro SD-cards.
 
 ![](../assets/k3s-raspberry.jpg)
+
+The disk write software we used was [Win32DiskImager](https://sourceforge.net/projects/win32diskimager/), instructions in [the raspberry pi documentation](https://www.raspberrypi.org/documentation/computers/getting-started.html#installing-images-on-windows).
 
 ### Configuring raspbian after boot on each node
 
@@ -58,6 +60,31 @@ I named my nodes ds-pi-1 and ds-pi-2, assigning them ip addresses 192.168.0.78 a
 
 The one named ds-pi-2 became the master node. (We assigned this by which was the first case we unpacked and somehow switched SD-cards around and got them confused!)
 
+Adding this info to your local ssh_config file will make it a bit easier to keep track while boostrapping. Once the cluster is up and running the need to ssh to them diminishes.
+
+``` powershell
+@"
+
+Host ds-pi-2
+  HostName 192.168.0.79
+  User pi
+
+Host kubemaster
+  HostName 192.168.0.79
+  User pi
+
+Host ds-pi-1
+  HostName 192.168.0.78
+  User pi
+
+Host kubeworker
+  HostName 192.168.0.78
+  User pi
+
+"@ | out-file C:\ProgramData\ssh\ssh_config -append
+
+```
+
 ``` bash
 sudo raspi-config #follow the steps
 
@@ -65,7 +92,7 @@ mkdir /home/pi/.ssh
 
 echo "<Mine and Algaron's ssh keys>" > /home/pi/.ssh/authorized_keys
 
-sed -i 's/#PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+sed -i 's/#PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config #kill the ability to log on with password
 sed -i 's/UsePAM yes.*/UsePAM no/' /etc/ssh/sshd_config
 
 printf %s " cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory" >> /boot/cmdline.txt
@@ -80,11 +107,25 @@ You should set your static ip on the nodes and not in your router like I did to 
 
 ### Installing k3s on the first node
 
+Let's fire up windows terminal and ssh to the nodes.
+
+``` powershell
+ssh pi@kubemaster
+```
+
+![](../assets/k3s-ssh-kubemaster.png)
+
+These commands will initialize the cluster by downloading the script from the k3s site. Then it will output the token we need.
+
 ```bash
 export K3S_KUBECONFIG_MODE=644
 curl -sfL https://get.k3s.io | sh -
 kubectl config view --raw #shows you the token you need to connect nodes and your dev environement
 ```
+
+![](../assets/k3s-token-output.png)
+
+Replace 127.0.0.1 with the ip address of the kube master, in our case 192.168.0.79
 
 ### Installing and joining the other nodes
 
@@ -98,19 +139,25 @@ sudo curl -sfL https://get.k3s.io | K3S_URL="https://<master ip>:6443" K3S_TOKEN
 
 ### kubectl and friends
 
+If you know anything about me you know about [chocolatey](https://chocolatey.org/install).
+
 ``` powershell
 choco install kubernetes-cli --y
 choco install kubernetes-helm --y
 choco install kubernetes-kompose --y
+#let's see what we have got installed
+choco list --local
 ```
 
 ![](../assets/k3s-choco-list.png)
 
-You can connect to the cluster by showing the info from the cluster 
+You can connect to the cluster from your local machine by importing the connection settings shown through the info from the cluster 
 
-Save the output from the config in the cluster to a config file and put it into a file named config under ~/.kube. Merge it if you have a file from before for one or more other clusters.
 
-![](../assets/k3s-config.png)
+
+Save the output from the config command you ran on the master node. Put it into a file named config under ~/.kube. Merge it if you have a file from before for one or more other clusters.
+
+![](../assets/k3s-kubeconfig.png)
 
 Now we can check out our deployment status 
 
@@ -171,10 +218,46 @@ helm qr thing
 
 ### You own CA with your proper let's encrypt cert
 
+http is better with TLS, by installing cert-manager on kubernetes you can let it act as a CA.
 
+Since I use a service mesh I will be using it for my ingress controller, the thing that makes it so that the network traffic reaches services inside the cluster.
+
+``` powershell
+helm install --namespace kube-system -n cert-manager stable/cert-manager
+```
 
 ### Private container registry
 
 Rather than putting the docker images I build myself on docker hub I would like to host them directly inside the cluster, that way there isn't a roundtrip up to the Internet all the time.
 
-### 
+### Service meshes - Linkerd specifically
+
+There are a couple of popular choices for service meshes on top of kubernetes, most prominent are [Istio](https://istio.io/) and [Linkerd](https://linkerd.io/).
+
+Istio to my knowledge does not run on ARM so to get a service mesh to work on our particular cluster we are goint to run with Linkerd.
+
+``` powershell
+#add Linkerd runtime to my machine
+choco install Linkerd2 --y
+
+#once I have the software, install Linkerd runtime to the current cluster
+Linkerd install
+
+#checks status of the installation
+Linkerd check --proxy -n Linkerd
+```
+
+Look at all those happy check marks / saxophone emoji
+
+![](../assets/k3s-linkerd-installed.png)
+
+Linkerd will automatically enforce mTLS between pods, but to get proxy injection you have to specify it on your deployment or your namespace.
+
+By always creating a namespace for each application, I don't have to think much about it since I will just add the tag for proxy injection to my namespace.
+
+```powershell
+kubectl create namespace example
+kubectl annotate namespace example linkerd.io/inject="enabled"
+
+```
+
