@@ -56,7 +56,8 @@ task surf {
 task newpost {
     $df = get-date -Format 'yyyy-MM-dd'
     $postname = read-host -Prompt 'What would you like to bestow upon your very limited social circle today?'
-    New-Item "$rootdir/docs/_posts/$df-$($postname.Replace(' ','-').ToLower()).md" | psedit
+    $p = New-Item "$rootdir/docs/_posts/$df-$($postname.Replace(' ','-').ToLower()).md" 
+    code $p
 }
 
 task . serve, surf
