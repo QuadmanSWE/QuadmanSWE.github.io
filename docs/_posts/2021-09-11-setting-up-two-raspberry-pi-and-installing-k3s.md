@@ -23,7 +23,6 @@ This guide is intended for developers that use primarily Windows 10 and want an 
   - [The tools I use to interact with kubernetes from windows 10](#the-tools-i-use-to-interact-with-kubernetes-from-windows-10)
     - [kubectl and friends](#kubectl-and-friends)
     - [vs code extension](#vs-code-extension)
-    - [kubernetes-dashboard](#kubernetes-dashboard)
   - [My first deployment](#my-first-deployment)
     - [Straight up simplest web app of your life](#straight-up-simplest-web-app-of-your-life)
     - [Something a bit harder, with helm](#something-a-bit-harder-with-helm)
@@ -47,7 +46,7 @@ The one we chose for the occation was ["2020-08-20-raspios-buster-arm64-lite.zip
 
 We mounted the image in windows and added an empty ssh file to the image before copying over to show that we wanted to use ssh in the future. (We killed the ability to log on with password in the future in the sshd_config file.)
 
-I am using an old mp3 player ascesory as a docking station for micro SD-cards.
+I am using an old mp3 player accessory as a docking station for micro SD-cards.
 
 The disk write software we used was [Win32DiskImager](https://sourceforge.net/projects/win32diskimager/), instructions in [the raspberry pi documentation](https://www.raspberrypi.org/documentation/computers/getting-started.html#installing-images-on-windows).
 
@@ -94,16 +93,19 @@ ssh pi@kubemaster
 ``` bash
 sudo raspi-config #follow the steps
 
+#add ssh keys
 mkdir /home/pi/.ssh
-
 echo "<Mine and Algaron's ssh keys>" > /home/pi/.ssh/authorized_keys
 
-sed -i 's/#PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config #kill the ability to log on with password
+#kill the ability to log on with password
+sed -i 's/#PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
 sed -i 's/UsePAM yes.*/UsePAM no/' /etc/ssh/sshd_config
 
+#Enable container features
 printf %s " cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory" >> /boot/cmdline.txt
 
 ```
+> 📝 Not sure if it is an intermittent problem or if I appended to the cmdline.txt file improperly but I had to at least once remove an extra empty line from that file after writing to get container features running properly. Let me know on twitter if you have any input.
 
 Now repeat that step for each worker node (in my case the only one)
 
@@ -111,11 +113,15 @@ Now repeat that step for each worker node (in my case the only one)
 ssh pi@kubeworker
 ```
 
+---
+
 ### Assiging static IP
 
 You should set your static ip on the nodes and not in your router like I did to prevent issues with DNS inside the cluster. I don't care about that stuff and I live my life pretty much as a renegade (I am hiding an insecurity with my lazyness, don't judge).
 
 ![](../assets/k3s-router.png)
+
+---
 
 ### Installing k3s on the first node
 
@@ -141,6 +147,8 @@ kubectl config view --raw #shows you the token you need to connect nodes and you
 
 Replace 127.0.0.1 with the ip address of the kube master, in our case 192.168.0.79
 
+---
+
 ### Installing and joining the other nodes
 
 ``` powershell
@@ -153,18 +161,32 @@ Replace master ip and master key
 sudo curl -sfL https://get.k3s.io | K3S_URL="https://<master ip>:6443" K3S_TOKEN=<master key> sh -
 ```
 
+---
+
 ## The tools I use to interact with kubernetes from windows 10
+
+Let's quickly go over my recommended way to interact with kubernetes form windows with powershell.
+
+---
 
 ### kubectl and friends
 
 If you know anything about me you know about [chocolatey](https://chocolatey.org/install).
 
+---
+
 [kubectl](https://kubernetes.io/docs/tasks/tools/) is the command line interface for kubernetes, I will use it for most of the interaction with the cluster, as well as the vs code extension for a visualization.
+
+---
 
 [helm](https://helm.sh/) and its charts lets developers describe their applications for kuberenets deployment rather than an array of kubernetes deployments.
 This way you can install and upgrade an application in one go and it is a great interface for talking about the application between the development team and the operations team / SRE.
 
+---
+
 Lastly I suggest for people who are comfortable with docker-compose to try out [kompose](https://kubernetes.io/docs/tasks/configure-pod-container/translate-compose-kubernetes/) which will translate yaml from the former to the latter so that you can deploy an application you are familiar with to kubernetes and see what gets created to facilitate your application.
+
+---
 
 ``` powershell
 choco install kubernetes-cli --y
@@ -189,6 +211,8 @@ kubectl get nodes
 ``` 
 ![](../assets/k3s-get-nodes.png)
 
+---
+
 ### vs code extension
 
 The kube config we saved can also be leveraged by the kubernetes extension for vscode.
@@ -199,45 +223,6 @@ Now we can for example browse our nodes from here, and what they are running. I 
 
 ![](../assets/k3s-kubernetes-extension-nodes.png)
 
-### kubernetes-dashboard
-
-Three lines of code that are run on the master node from https://rancher.com/docs/k3s/latest/en/installation/kube-dashboard/
-
-After exporting the bearer token I put it into my keepass database and I copy paste it from there whenever I use the dashboard.
-
-I built this cute powershell wrapper function to connect to any application, with a specific implementation in a different function for the dashboard app itself. These get loaded as part of my powershell profile
-
-``` powershell
-Function Connect-KubeApplication {
-	param(
-		[int]$localport,
-		[int]$clusterport,
-		[string]$servicename,
-		[string]$namespace = $servicename,
-		[string]$path = '',
-		[Parameter(Mandatory=$false)][ValidateSet('http','https')][string]$protocol = 'https'
-	)
-	start-process chrome "$($protocol)://localhost:$localport/$path"
-	kubectl port-forward -n $namespace service/$servicename "$localport`:$clusterport" --address 0.0.0.0
-}
-Function Connect-KubeDashBoard {
-	param([int]$localport = 10443)
-	Connect-KubeApplication -localport $localport -clusterport 443 -servicename 'kubernetes-dashboard'
-}
-```
-
-Now I can connect like so to the dashboard: 
-```powershell
-Connect-KubeDashBoard
-```
-
-My shell will spit out the port forward command that was run and the reponse.
-
-![](../assets/k3s-Connect-KubeDashBoard.png)
-
-It will also surf to the application with chrome.
-
-![](../assets/k3s-surf-dashboard.png)
 
 ## My first deployment
 
@@ -261,6 +246,7 @@ kubectl delete deployment nginx-deployment
 ```
 
 ---
+
 ### Something a bit harder, with helm
 
 Note that when you install helm charts, that a lot of them contain images which are not built for the ARM architecture of our raspberry pi cluster. Your milage might wary. Here is a chart I built for a simple golang app that translates string input into a QR code png.
