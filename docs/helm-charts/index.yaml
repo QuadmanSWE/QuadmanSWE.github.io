@@ -1,0 +1,14 @@
+apiVersion: v1
+entries:
+  qr:
+  - apiVersion: v2
+    appVersion: 0.1.2
+    created: "2021-09-12T16:32:52.1664658+02:00"
+    description: A Helm chart for a QR code generator in golang for ARM
+    digest: 701692beca6c9b1946d251dadfaf2ffd973f163be8be73002248bbe29af79bea
+    name: qr
+    type: application
+    urls:
+    - https://blog.dsoderlund.com/helm-charts/qr-0.1.0.tgz
+    version: 0.1.0
+generated: "2021-09-12T16:32:52.1659247+02:00"
