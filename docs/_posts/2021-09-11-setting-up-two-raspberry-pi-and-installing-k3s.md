@@ -249,16 +249,58 @@ kubectl delete deployment nginx-deployment
 
 ### Something a bit harder, with helm
 
-Note that when you install helm charts, that a lot of them contain images which are not built for the ARM architecture of our raspberry pi cluster. Your milage might wary. Here is a chart I built for a simple golang app that translates string input into a QR code png.
+Note that when you install helm charts, that a lot of them contain images which are not built for the ARM architecture of our raspberry pi cluster. Your milage might wary. Here is a repo with a chart I built for a simple golang app that translates string input into a QR code png.
 
-helm qr thing
+``` powershell
+helm repo add dsoderlund "https://blog.dsoderlund.consulting/helm-charts/"
+helm search repo qr
+```
 
-If you are interested in not only running helm charts but creating them, check out this great documentation and then run: 
+![](../assets/k3s-helm-repo-added.png)
+
+Now we can deploy the helm chart, --set will overwrite a setting in the default values, I want to replace the default port 8080 with 17890.
 
 ```powershell
+$port = 17890
+kubectl create namespace qr
+helm install --set service.port=$port qr -n qr dsoderlund/qr 
+```
+
+When we run the helm install we get an output like so.
+
+![](../assets/k3s-helm-install.png)
+
+
+```powershell
+$port = 17890
+
+#some testing data
+$AwesomePageOnTheInterwebs = "https://blog.dsoderlund.consulting/setting-up-two-raspberry-pi-and-installing-k3s" # 👀
+$url = "http://192.168.0.78:{0}/?data={1}&size={2}" -f $port, $AwesomePageOnTheInterwebs, 512
+
+#surf
+start chrome $url
+
+#stream qr codes to png files
+$response = Invoke-WebRequest -Uri $url
+[IO.File]::WriteAllBytes("somefile.png",$response.Content)
+
 
 ```
 
+There we go, now I can get on demand qr codes form kubernetes.
+
+![](../assets/k3s-url-as-qr.png)
+
+To remove a helm chart, run helm uninstall.
+
+```powershell
+helm uninstall qr -n qr
+```
+
+If you are interested in not only running helm charts but creating them, check out [this great documentation](https://helm.sh/docs/helm/helm_create/).
+
+If you like powershell like I do I've made my [helm chart build script available on github](https://github.com/QuadmanSWE/QuadmanSWE.github.io/tree/main/helm).
 
 --- 
 
