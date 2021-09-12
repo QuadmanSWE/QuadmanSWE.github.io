@@ -11,6 +11,10 @@ Chances are if you find this post that you want to build a physical cluster on y
 
 We will be using [k3s from rancher](https://k3s.io/) as our kubernetes distro.
 
+This guide is intended for developers that use primarily Windows 10 and want an example of what setting up a physical kubernetes cluster is like.
+
+I highly recommend to read up until the extra credit section, there will be lots of pretty pictures!
+
 - [Beyond Minikube - setting up two raspberry pi with k3s to get experience with kubernetes.](#beyond-minikube---setting-up-two-raspberry-pi-with-k3s-to-get-experience-with-kubernetes)
   - [Cluster infrastructure set up](#cluster-infrastructure-set-up)
     - [Unpacking and bootstrapping rasbian](#unpacking-and-bootstrapping-rasbian)
@@ -23,19 +27,24 @@ We will be using [k3s from rancher](https://k3s.io/) as our kubernetes distro.
     - [vs code extension](#vs-code-extension)
     - [kubernetes-dashboard](#kubernetes-dashboard)
   - [My first deployment](#my-first-deployment)
-  - [Things you can do for fun and profit (extra credit and homework)](#things-you-can-do-for-fun-and-profit-extra-credit-and-homework)
+    - [Straight up simplest web app of your life](#straight-up-simplest-web-app-of-your-life)
+    - [Something a bit harder, with helm](#something-a-bit-harder-with-helm)
+  - [Extra credit and homework for the nerds in the front of the class](#extra-credit-and-homework-for-the-nerds-in-the-front-of-the-class)
     - [You own CA with your proper let's encrypt cert](#you-own-ca-with-your-proper-lets-encrypt-cert)
     - [Private container registry](#private-container-registry)
     - [Service meshes - Linkerd specifically](#service-meshes---linkerd-specifically)
+
+---
 
 ## Cluster infrastructure set up
 
 I bought the two rasberry pi, usb-c cables for power, some cute [ebony](https://www.inet.se/produkt/1974085/okdo-raspberry-pi-4-case-black) and [ivory](https://www.inet.se/produkt/1974087/okdo-raspberry-pi-4-case-clear) cases and micro SD-cards from [https://www.inet.se/](Inet.se) (shout out to their webshop, expect more business from me).
 
-![](../assets/k3s-shopping-list.png)
-
 Once the package showed up, me and [Algaron87](https://twitter.com/Algaron87) unpacked everything and put the two raspberry pi into their cases. Algaron is my high school buddy / friend of the family / godfather of my children / all around good guy.
 
+![](../assets/k3s-shopping-list.png)
+
+---
 ### Unpacking and bootstrapping rasbian
 
 We unpacked the micro SD-cards and began flashing over a rasbian image that you can [download here.](https://downloads.raspberrypi.org/)
@@ -46,15 +55,12 @@ We mounted the image in windows and added an empty ssh file to the image before 
 
 I am using an old mp3 player ascesory as a docking station for micro SD-cards.
 
-![](../assets/k3s-raspberry.jpg)
-
 The disk write software we used was [Win32DiskImager](https://sourceforge.net/projects/win32diskimager/), instructions in [the raspberry pi documentation](https://www.raspberrypi.org/documentation/computers/getting-started.html#installing-images-on-windows).
 
+![](../assets/k3s-raspberry.jpg)
+
+---
 ### Configuring raspbian after boot on each node
-
-This is by far the most boring task if you have to redo it, because it involves physical labor.
-
-[Reference this documetation on rasp-config.](https://www.raspberrypi.org/documentation/computers/configuration.html)
 
 I named my nodes ds-pi-1 and ds-pi-2, assigning them ip addresses 192.168.0.78 and 192.168.0.79 respectively.
 
@@ -85,6 +91,12 @@ Host kubeworker
 
 ```
 
+Time to connect and configure each node, had I had three or more nodes I would look into automating this part further.
+``` powershell
+ssh pi@kubemaster
+```
+[Reference this documetation on rasp-config.](https://www.raspberrypi.org/documentation/computers/configuration.html)
+
 ``` bash
 sudo raspi-config #follow the steps
 
@@ -99,13 +111,21 @@ printf %s " cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory" >> /boot/
 
 ```
 
+Now repeat that step for each worker node (in my case the only one)
+
+``` powershell
+ssh pi@kubeworker
+```
+
 ### Assiging static IP
 
-You should set your static ip on the nodes and not in your router like I did to prevent issues with DNS inside the cluster. I don't care about that stuff and I live my life pretty much as a renegade, but please don't be like me.
+You should set your static ip on the nodes and not in your router like I did to prevent issues with DNS inside the cluster. I don't care about that stuff and I live my life pretty much as a renegade (I am hiding an insecurity with my lazyness, don't judge).
 
 ![](../assets/k3s-router.png)
 
 ### Installing k3s on the first node
+
+We performed a proper reboot of the nodes by unplugging and replugging the two raspberry pi.
 
 Let's fire up windows terminal and ssh to the nodes.
 
@@ -129,6 +149,10 @@ Replace 127.0.0.1 with the ip address of the kube master, in our case 192.168.0.
 
 ### Installing and joining the other nodes
 
+``` powershell
+ssh pi@kubeworker
+```
+
 Replace master ip and master key
 
 ``` bash
@@ -140,6 +164,13 @@ sudo curl -sfL https://get.k3s.io | K3S_URL="https://<master ip>:6443" K3S_TOKEN
 ### kubectl and friends
 
 If you know anything about me you know about [chocolatey](https://chocolatey.org/install).
+
+[kubectl](https://kubernetes.io/docs/tasks/tools/) is the command line interface for kubernetes, I will use it for most of the interaction with the cluster, as well as the vs code extension for a visualization.
+
+[helm](https://helm.sh/) and its charts lets developers describe their applications for kuberenets deployment rather than an array of kubernetes deployments.
+This way you can install and upgrade an application in one go and it is a great interface for talking about the application between the development team and the operations team / SRE.
+
+Lastly I suggest for people who are comfortable with docker-compose to try out [kompose](https://kubernetes.io/docs/tasks/configure-pod-container/translate-compose-kubernetes/) which will translate yaml from the former to the latter so that you can deploy an application you are familiar with to kubernetes and see what gets created to facilitate your application.
 
 ``` powershell
 choco install kubernetes-cli --y
@@ -153,13 +184,11 @@ choco list --local
 
 You can connect to the cluster from your local machine by importing the connection settings shown through the info from the cluster 
 
-
-
 Save the output from the config command you ran on the master node. Put it into a file named config under ~/.kube. Merge it if you have a file from before for one or more other clusters.
 
 ![](../assets/k3s-kubeconfig.png)
 
-Now we can check out our deployment status 
+Now we can check out our deployment status with kubectl, it will use our configuration that we saved in the previous step.
 
 ```
 kubectl get nodes
@@ -167,6 +196,14 @@ kubectl get nodes
 ![](../assets/k3s-get-nodes.png)
 
 ### vs code extension
+
+The kube config we saved can also be leveraged by the kubernetes extension for vscode.
+
+![](../assets/k3s-kubernetes-extension-install.png)
+
+Now we can for example browse our nodes from here, and what they are running. I find this a great visual tool to learn how my deployments become entities in kubernetes and what yaml they produce internally.
+
+![](../assets/k3s-kubernetes-extension-nodes.png)
 
 ### kubernetes-dashboard
 
@@ -210,11 +247,41 @@ It will also surf to the application with chrome.
 
 ## My first deployment
 
+### Straight up simplest web app of your life
+``` powershell
+kubectl apply -f "https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/application/deployment.yaml"
+```
+
+If you are quick in the extension you can see the two pods of the deployment being unavailable for a time
+
+![](../assets/k3s-simple-app-deploy.png)
+
+In a few short moments they will turn green, indicating they are in the ready state.
+
+![](../assets/k3s-simple-app-deploy-2.png)
+
+Get rid of that stuff by running kubectl delete deployment nginx-deployment
+
+``` powershell
+kubectl delete deployment nginx-deployment
+```
+
+
+
+### Something a bit harder, with helm
+
+Note that when you install helm charts, that a lot of them contain images which are not built for the ARM architecture of our raspberry pi cluster. Your milage might wary. Here is a chart I built for a simple golang app that translates string input into a QR code png.
+
 helm qr thing
 
-![](../assets/k3s-get-pods.png)
+If you are interested in not only running helm charts but creating them, check out this great documentation and then run: 
 
-## Things you can do for fun and profit (extra credit and homework)
+```powershell
+
+```
+
+
+## Extra credit and homework for the nerds in the front of the class
 
 ### You own CA with your proper let's encrypt cert
 
@@ -232,6 +299,8 @@ Rather than putting the docker images I build myself on docker hub I would like 
 
 ### Service meshes - Linkerd specifically
 
+Service meshes act as another layer of abstraction on top of kubernetes and what it already provides in terms of infrastructure for our applications. A service mesh orchestrates the intra connection between services that make up an application. This way the application developer can describe **WHAT** a service needs but doesn't have to write native code in the each service on **HOW** it gets it.
+
 There are a couple of popular choices for service meshes on top of kubernetes, most prominent are [Istio](https://istio.io/) and [Linkerd](https://linkerd.io/).
 
 Istio to my knowledge does not run on ARM so to get a service mesh to work on our particular cluster we are goint to run with Linkerd.
@@ -240,24 +309,48 @@ Istio to my knowledge does not run on ARM so to get a service mesh to work on ou
 #add Linkerd runtime to my machine
 choco install Linkerd2 --y
 
+#function to mimic linux reading from stdin in a pipeline
+function kapow([Parameter(ValueFromPipeline = $true)][string]$param) {
+  $tf=New-TemporaryFile;
+  $param | out-file $tf;
+  & kubectl apply --recursive -f $tf;
+  rm $tf 
+}
 #once I have the software, install Linkerd runtime to the current cluster
-Linkerd install
+linkerd install | out-string | kapow #This is equivalent of sh Linkerd install | kubectl apply --recursive -f -
 
 #checks status of the installation
-Linkerd check --proxy -n Linkerd
+linkerd check --proxy -n Linkerd
+
+#Add the Linkerd viz dashboard
+linkerd viz install | out-string | kapow
+
 ```
 
 Look at all those happy check marks / saxophone emoji
 
 ![](../assets/k3s-linkerd-installed.png)
 
-Linkerd will automatically enforce mTLS between pods, but to get proxy injection you have to specify it on your deployment or your namespace.
+Linkerd will automatically enforce mTLS between meshed pods, but to get your pods meshed, you have to specify it on your deployment or your namespace.
 
-By always creating a namespace for each application, I don't have to think much about it since I will just add the tag for proxy injection to my namespace.
+By always creating a namespace for each instance of an application, I don't have to think much about it since I will just add the tag for proxy injection to my namespace.
+
+Here is an example deployment into the mesh, some-deployment.yaml is a copy of the deployment I did in the last blogpost: [7 sept 2021 -  Exploring multi-stage build in docker to learn javascript in the future](./react-nginx-docker-multistage)
 
 ```powershell
-kubectl create namespace example
-kubectl annotate namespace example linkerd.io/inject="enabled"
+k create namespace example
+k annotate namespace example linkerd.io/inject="enabled"
 
+ka "some-deployment.yaml" #a react app in nginx, see previous blog post.
+k expose deployment myapp-deployment --name myservice
+
+#check that app is running properly
+Connect-KubeApplication -localport 10987 -clusterport 80 -protocol http -servicename myservice -namespace example 
+
+#open the dashboard
+linkerd viz dashboard #similar to my Connect-KubeApplication cmdlet
 ```
 
+Look at that, blesh this mesh.
+
+![](../assets/k3s-example-meshed.png)
