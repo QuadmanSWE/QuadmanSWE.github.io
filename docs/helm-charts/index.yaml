@@ -9,6 +9,6 @@ entries:
     name: qr
     type: application
     urls:
-    - https://blog.dsoderlund.com/helm-charts/qr-0.1.0.tgz
+    - https://blog.dsoderlund.consulting/helm-charts/qr-0.1.0.tgz
     version: 0.1.0
 generated: "2021-09-12T16:32:52.1659247+02:00"

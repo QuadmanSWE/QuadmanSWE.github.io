@@ -20,7 +20,7 @@
 #>
 param(
     $chartname,
-    $url = "https://blog.dsoderlund.com/helm-charts"
+    $url = "https://blog.dsoderlund.consulting/helm-charts"
 )
 $rootdir = git rev-parse --show-toplevel
 $chartsource = "$rootdir/helm/charts"
