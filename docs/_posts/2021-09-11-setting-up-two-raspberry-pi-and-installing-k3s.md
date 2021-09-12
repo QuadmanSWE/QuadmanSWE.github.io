@@ -258,7 +258,7 @@ helm search repo qr
 
 ![](../assets/k3s-helm-repo-added.png)
 
-Now we can deploy the helm chart, --set will overwrite a setting in the default values, I want to replace the default port 8080 with 17890.
+Now we can deploy the helm chart, ```--set key=value``` will overwrite a setting in the default values, I want to replace the default port 8080 with 17890.
 
 ```powershell
 $port = 17890
