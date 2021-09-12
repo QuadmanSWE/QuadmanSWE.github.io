@@ -5,6 +5,16 @@ param(
     [parameter()][string]$postname = ''
 )
 $rootdir = git rev-parse --show-toplevel
+task proofread {
+    $learntospellyoudunce = @("kubernets", "kuberen")
+    $spellingmisstakes = gci "$rootdir/docs/_posts/*.md" | % {
+        gc $_ | Select-String -Pattern $learntospellyoudunce
+    }
+    if($spellingmisstakes) {
+        $spellingmisstakes
+        throw 'learn to spell you dunce'
+    }
+}
 task new {
     mkdir docs -ea 0 | out-null
     push-location $rootdir/docs
@@ -69,4 +79,4 @@ published: true
     code $postfile
 }
 
-task . serve, surf
+task . proofread, serve, surf
