@@ -1,5 +1,5 @@
 ---
-title: Quick guide to kuberenetes on raspberry pi
+title: Quick guide to kubernetes on raspberry pi
 published: true
 ---
 
@@ -179,7 +179,7 @@ If you know anything about me you know about [chocolatey](https://chocolatey.org
 
 ---
 
-[helm](https://helm.sh/) and its charts lets developers describe their applications for kuberenetes deployment rather than an array of kubernetes deployments.
+[helm](https://helm.sh/) and its charts lets developers describe their applications for kubernetes deployment rather than an array of kubernetes deployments.
 This way you can install and upgrade an application in one go and it is a great interface for talking about the application between the development team and the operations team / SRE.
 
 ---
