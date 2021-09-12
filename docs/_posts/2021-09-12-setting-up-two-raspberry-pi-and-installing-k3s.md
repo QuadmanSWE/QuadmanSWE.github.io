@@ -258,6 +258,8 @@ helm search repo qr
 
 ![](../assets/k3s-helm-repo-added.png)
 
+---
+
 Now we can deploy the helm chart, ```--set key=value``` will overwrite a setting in the default values, I want to replace the default port 8080 with 17890.
 
 ```powershell
@@ -270,6 +272,9 @@ When we run the helm install we get an output like so.
 
 ![](../assets/k3s-helm-install.png)
 
+---
+
+There we go, now I can get on demand QR codes form kubernetes.
 
 ```powershell
 $port = 17890
@@ -281,16 +286,17 @@ $url = "http://192.168.0.78:{0}/?data={1}&size={2}" -f $port, $AwesomePageOnTheI
 #surf
 start chrome $url
 
-#stream qr codes to png files
+#stream QR codes to png files
 $response = Invoke-WebRequest -Uri $url
 [IO.File]::WriteAllBytes("somefile.png",$response.Content)
 
 
 ```
-
-There we go, now I can get on demand qr codes form kubernetes.
+Here is the output with a QR code that should point to this very blog post. Go ahead and scan it. 📷
 
 ![](../assets/k3s-url-as-qr.png)
+
+---
 
 To remove a helm chart, run helm uninstall.
 
