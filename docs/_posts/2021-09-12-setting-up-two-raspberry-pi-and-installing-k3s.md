@@ -140,7 +140,7 @@ These commands will initialize the cluster by downloading the script from the k3
 ```bash
 export K3S_KUBECONFIG_MODE=644
 curl -sfL https://get.k3s.io | sh -
-kubectl config view --raw #shows you the token you need to connect nodes and your dev environement
+sudo cat /var/lib/rancher/k3s/server/node-token #shows you the token you need to connect nodes and your dev environement
 ```
 
 ![](../assets/k3s-token-output.png)
