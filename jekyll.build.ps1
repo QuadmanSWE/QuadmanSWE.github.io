@@ -69,13 +69,13 @@ task newpost {
     if ($postname -eq '') {
         $postname = read-host -Prompt 'What would you like to bestow upon your very limited social circle today?'
     }
-    $postfile = New-Item "$rootdir/docs/_posts/$df-$($postname.Replace(' ','-').ToLower()).md" 
+    $postfile = New-Item "$rootdir/docs/_posts/$df-$($postname.Replace(' ','-').ToLower()).md"
     @"
 ---
 title: $postname
 published: true
 ---
-"@ | out-file $postfile
+"@ | out-file $postfile -Encoding utf8
     code $postfile
 }
 
