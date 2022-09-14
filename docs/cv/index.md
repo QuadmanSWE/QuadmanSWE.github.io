@@ -23,10 +23,11 @@ I frequent tech meetups, and am an occasional speaker.
 * SSIS
 * SSRS
 * PowerShell
-* Azure
+* Azure Infrastructure
 * Azure Devops Pipelines
 * Docker
 * Kubernetes
+* Terraform
 * Git
 
 ## High tech industry
@@ -34,9 +35,9 @@ I frequent tech meetups, and am an occasional speaker.
 
 `2021-current`
 
-I designed a SQL Server database application and set up the pipeline to get development rolling.
+I designed a SQL Server database application and set up the pipeline to get development rolling with CI/CD out of the gate.
 I lead a team developing this application to help optimize return of investment in refining raw materials.
-The application interacts with different users and systems to 
+The application interacts with different users and systems.
 
 
 
@@ -45,10 +46,11 @@ The application interacts with different users and systems to
 
 `2018-Current`
 
-I have helped multiple teams to align with the agile mindset. I am helping automate the 
+I work in the platform team helping developers and operations to bridge their gap.
 
+I've built frameworks, modules, and solutions to bring stateful legacy solutions into CI/CD.
 
- 
+When the customer chose to develop against kubernetes, I've helped out in how developers and operations can get the most out of that platform.
 
 ## Saxo Bank
 ### Data Warehouse Development
