@@ -6,7 +6,7 @@ param(
 )
 $rootdir = git rev-parse --show-toplevel
 task proofread {
-    $learntospellyoudunce = @("kubernets", "kuberen")
+    $learntospellyoudunce = @("kubernets", "kuberen", "oath")
     $spellingmisstakes = gci "$rootdir/docs/_posts/*.md" | % {
         gc $_ | Select-String -Pattern $learntospellyoudunce
     }
@@ -29,11 +29,11 @@ task build {
     if (test-path .\docs) {
         Push-Location $rootdir/docs
         #build
-        docker run --rm -it --volume="$($PWD):/srv/jekyll" --volume="$PWD/vendor/bundle:/usr/local/bundle" --env JEKYLL_ENV=production jekyll/jekyll:$jekyllversion jekyll build
+        docker run --rm -it --volume="$($PWD):/srv/jekyll" --volume="$PWD/vendor/bundle:/usr/local/bundle" --env JEKYLL_ENV=production jekyll/jekyll:$jekyllversion /bin/sh -c "bundle install && jekyll build"
         Pop-Location
     }
     else {
-        throw "You cannot build what does not exist, run invokebuild new first!"
+        throw "You cannot build what does not exist, run invoke-build new first!"
     }
 }
 
@@ -49,7 +49,7 @@ task serve stop, remove, {
     if (test-path .\docs) {
         Push-Location $rootdir/docs
         #serve
-        docker run -d --name $servecontainername --volume="$($PWD):/srv/jekyll" --volume="$PWD/vendor/bundle:/usr/local/bundle" --env JEKYLL_ENV=development -p 4000:4000 jekyll/jekyll:$jekyllversion jekyll serve
+        docker run -d --name $servecontainername --volume="$($PWD):/srv/jekyll" --volume="$PWD/vendor/bundle:/usr/local/bundle" --env JEKYLL_ENV=development -p 4000:4000 jekyll/jekyll:$jekyllversion jekyll serve --watch --drafts
 
         Pop-Location
     }

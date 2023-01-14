@@ -10,6 +10,7 @@ $body-foreground: $gallery !default;
 $header: $conifer !default;
 $blockquote-color: $silver-chalice !default;
 $blockquote-border: $dove-grey !default;
+$mermaid-background: #111111 !default;
 
 body {
   margin: 0;
@@ -266,6 +267,13 @@ a:active, a:focus {
   height: 50px;
   line-height: 50px;
   text-align: center;
+}
+
+.mermaid {
+  background: $mermaid-background;
+  border-radius: 25px;
+  padding: 20px;
+  font-weight: bold;
 }
 
 #wrapper {
