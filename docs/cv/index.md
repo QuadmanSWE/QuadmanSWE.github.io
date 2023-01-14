@@ -27,18 +27,19 @@ I frequent tech meetups, and am an occasional speaker.
 * Azure Devops Pipelines
 * Docker
 * Kubernetes
+* Istio
+* Keycloak
 * Terraform
 * Git
 
 ## High tech industry
 ### Solutions Architect
 
-`2021-current`
+`2021-2022`
 
 I designed a SQL Server database application and set up the pipeline to get development rolling with CI/CD out of the gate.
 I lead a team developing this application to help optimize return of investment in refining raw materials.
 The application interacts with different users and systems.
-
 
 
 ## Tunstall Nordic
