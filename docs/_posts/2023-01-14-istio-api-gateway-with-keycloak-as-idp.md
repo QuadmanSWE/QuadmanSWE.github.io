@@ -67,7 +67,7 @@ ArgoCD app of apps for our platform cluster deploys the following using third pa
   - base
   - istiod
   - gateway
-  - Oath2-Proxy
+  - Oauth2-Proxy
 - Certmanager
 - AAD-pod-identity
 - Keycloak
