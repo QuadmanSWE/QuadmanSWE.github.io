@@ -5,11 +5,11 @@ published: true
 
 # Introduction
 
-Having an API gateway and single sign on for every services deployed behind that gateway allows our developers to ignore developing their applications to be aware of issuers, token validation for authentication, et cetera and they can focus on checking the token claims for authorization.
+Having an API gateway and single sign on for every service deployed behind that gateway allows our developers to ignore developing their applications to be aware of issuers, token validation for authentication, et cetera and they can focus on checking the token claims for authorization.
 
 ## Prerequisites:
 
-A running Kubernetes cluster that you can control.
+- A running Kubernetes cluster that you can control.
 
 We choose to run on Azure, and have created our cluster using terraform.
 
@@ -78,33 +78,33 @@ ArgoCD app of apps for our platform cluster deploys the following using third pa
 
 ## Postgres
 
-We ran our postgres server on Azure.
+We chose postgres for our keycloak database, we also use if for [Backstage](https://backstage.io/).
+
+We run our postgres server on Azure.
 
 One issue you might run into is that Azure signs the keys with sha1 for flexibles servers. So keycloak 21 and higher need you to mount the suitable ca.crt for it to trust it. (Works normally up until version 20 of keycloak and for other postgres offerings on Azure.)
 
 ## Keycloak setup
 
-We used this helm chart and created sealed secrets for a root account and the postgres accounts: 
-
-https://github.com/codecentric/helm-charts/tree/master/charts/keycloakx
+We used [this helm chart](https://github.com/codecentric/helm-charts/tree/master/charts/keycloakx) and created [sealed secrets](https://github.com/bitnami-labs/sealed-secrets) for a keycloak root account and the postgres credentials.
 
 Here is what it looks like in argocd, the app of apps scheme makes it look a bit wonky but it works.
 
 ![](../assets/2023-04-05-istio-1-kcx.png)
 
-We have have after this set up keycloak using kustomize with great results too, it is for experimenting with some other stuff and not used for our istio api gateway. Much simpler to work with though in my opinion than the helm installation
+After our initial bout with keycloak we have set up another implementation of it using kustomize with great results. That instance is for experimenting with some other stuff and not used for our istio api gateway. Much simpler to work with though in my opinion than the helm installation
 
 ![](../assets/2023-04-05-istio-2-kck.png)
 
 ## Istio
 
-After having installed istio with its helm charts through argocd. 
+We went ahead and installed istio with [its helm charts](https://istio.io/latest/docs/setup/install/helm/) through argocd. 
 
 Some configuration highlights from what I remember
 
 > 📝 This is a very summarized list, I implore you to scour the web for details on how to set everything
 
-- Created a oidc client in keycloak for oauth2 proxy with a bunch of mappers and scope settings to fit our needs.
+- Created an oidc client in keycloak for oauth2 proxy with a bunch of mappers and scope settings to fit our needs.
 
 - istiod configuration extensionprovider envoyExtAuthzHttp set to point to oauth2 proxy.
 
@@ -123,16 +123,16 @@ I cleared out my cookies and refreshed the /echo service we have set up that jus
 
 Otherwise the client could not see what is going on (remember the user only gets the cookie from oauth2 proxy to store).
 
-As you can see on the right in dev tools, when requesting "echo" service I get redirected to /auth (keycloak), then to /login (microsoft azure active directory which we federate to), then I get through around in there for a while, then back to /callback with the code that oauth2 proxy expects in return for a cookie that it has already prepared in redis. Lastly the upstream service /echo loads and I can see all of the info that every upstream service has available (while I the user have only a cookie).
+As you can see on the right in dev tools, when requesting "echo" service I get redirected to /auth (keycloak), then to /login (microsoft azure active directory which we federate to), then I get passed around in there by microsoft for a while, then back to /callback with the code that oauth2 proxy expects in return for a cookie that it has already prepared in redis. Lastly the upstream service /echo loads and I can see all of the info that every upstream service has available (while I the user have only a cookie).
 
 ![](../assets/2023-04-05-echo-3.png)
 
 ## Summary
 
-Benefits of running apps in kubernetes is of course to be able to offer logs and metrics in a unified way. With the addition of istio we can add to that richer traffic metrics, and traffic management abilities such as circuit breaking and retry logic.
+Benefits for developers of running apps in kubernetes is of course to be able to get logs and metrics in a unified way. With the addition of istio we can add to that richer traffic metrics, and traffic management abilities such as circuit breaking and retry logic. All which reduces the cognetitive load and meta-data handling bloat that takes away from focus on the business logic.
 
 All in all this approach enables us to raise the bar of what a new application can do without a lot of boiler plate, and everyone's apps work the same way in these aspects since it is dealt with on the infrastructure level.
 
-An API gateway with istio becomes one more thing to add. One more thing that we can remove for each application to otherwise deal with.
+An API gateway with istio becomes one more thing in that effort. One more thing that we can take out of each application to otherwise deal with.
 
 Essentially we can promise developers that "if traffic hits your app on any port: it has been encrypted and is always authenticated, just make sure it is authorized."
