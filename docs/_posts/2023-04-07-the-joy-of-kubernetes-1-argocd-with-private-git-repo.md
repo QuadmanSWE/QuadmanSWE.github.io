@@ -1,6 +1,6 @@
 ---
-title: The joy of Kubernetes 1 Argo CD with private git repo
-published: false
+title: The joy of Kubernetes 1 - Argo CD with private git repo
+published: true
 ---
 
 # Argo CD - gitops from a private git repo
@@ -29,6 +29,8 @@ In this first entry in The Joy of Kubernetes we will explore setting up Argo CD 
 - A private git repo
 - ssh and ssh-keygen
 
+Rather than using kubectl for everything you could perhaps be more comfortable using a graphical interface like [the kubernetes dashboard](https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard/), [lens](https://k8slens.dev/) or [k9s](https://k9scli.io/) or whatever you prefer. Check them all out and pick what feels good for you. Personally I use k9s.
+
 ## My git server setup
 
 So I got this Network Storage server recently and during set up I saw that it came with some cool applications like a git server.
@@ -44,7 +46,7 @@ After installation all I really needed to configure was which users in the syste
 
 Once the server was set up I could initialize new repos and set up local repos to use them as remotes. I wrote a little powershell script that I added to my profile. In the future this will simplify things for me if I choose to add more repos.
 
-``` PowerShell
+``` powershell
 Function Init-NasGitRepo {
 	Param([Parameter(Mandatory)][string]$repoName) 
 	ssh ds@nas.local "cd ~/git && mkdir $repoName.git && cd $repoName.git && git init -b main --bare"
@@ -68,7 +70,7 @@ Allright now we have all the pieces to interact with git.
 
 Let's go ahead and install Argo CD on our designated cluster to get started. I will put the code for myself in the git repo but I will execute it manually.
 
-``` PowerShell
+``` powershell
 kubectl create namespace argocd;
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml;
 ```
@@ -92,7 +94,7 @@ kubectl get pods -n argocd
 
 I can see that it has deployed and I will create a port-forward to Argo CD-server to logon.
 
-``` PowerShell
+``` powershell
 kubectl port-forward service/argocd-server 8080:80 -n argocd
 ```
 
@@ -105,13 +107,14 @@ kubectl port-forward service/argocd-server 8080:80 -n argocd
 
 ![](../assets/2023-04-06-18-11-24.png)
 
-The default admin password can be extracted from a secret like so, or just use lens or k9s or what ever you prefer. Like all opaque secrets it is base 64 encoded so you can get the password by decoding the output. base64 -d in WSL can do it. [I use this plugin to vscode](https://marketplace.visualstudio.com/items?itemName=ipedrazas.kubernetes-snippets) which has built in keyboard shortcuts to encode/decode base64.
+The default admin password can be extracted from a secret like so.
 
-``` PowerShell
+``` powershell
 kubectl get secret -n argocd argocd-initial-admin-secret --output json | convertfrom-json | select -expandproperty data | select -expandproperty password
 ```
 ![](../assets/2023-04-06-18-26-16.png)
 
+Like all opaque secrets it is base 64 encoded so you can get the password by decoding the output. base64 -d in WSL can do it. [I use this plugin to vscode](https://marketplace.visualstudio.com/items?itemName=ipedrazas.kubernetes-snippets) which has built in keyboard shortcuts to encode/decode base64.
 
 After logging on I changed it to a new password that I liked better, (in the future this will be single sign on through keycloak or google).
 
@@ -136,7 +139,7 @@ git remote get-url origin
 | ssh://ds@nas.local/~/git/joy-of-kubernetes.git
 ```
 It is important that you resolve the full URL, there cannot be the ~ symbolic home link in the URL.
-For me this translates to this address. I can't use the .local domain since kubernetes runs its own network. The DNS I on my network however will translate the name properly.
+For me this translates to this address. I can't use the .local domain since kubernetes runs its own network. The DNS I run on the office network however will translate the name properly. You should perhaps take action in your router or pi-hole.
 ```
 | ssh://ds@nas/volume1/homes/ds/git/joy-of-kubernetes.git
 ```
@@ -161,9 +164,10 @@ In my case I just repeated [the steps in the intro](#my-git-server-setup)
 
 ### Trust the server from Argo CD
 
-Secondly we need to tell ArgoCD about the git serer, using the ssh known hosts built in functionality.
+Secondly we need to tell ArgoCD about the git server, using the ssh known hosts built in functionality.
 
 In the ArgoCD web page that we port-forward to, click "settings" and then "Add ssh known hosts" and then follow the instructions.
+
 ![](../assets/2023-04-06-19-02-44.png)
 
 > If you have set up a private git repo you have probably already accepted the host certificate. You can read them from your local known hosts file. It is usually in this place: ```~\.ssh\known_hosts```
@@ -188,7 +192,7 @@ Click Connect, hopefully everything will be green. Else check the logs for troub
 
 Green is good, let's check the logs anyway:
 
-``` PowerShell
+``` powershell
 kubectl logs deployment/argocd-repo-server -n argocd
 ``` 
 
@@ -211,7 +215,7 @@ Let us create the applicationset that will translate subdirectories to the gitop
 
 Here is a script that will create the directory, put in the application set defintion, and apply it to your cluster.
 
-``` PowerShell
+``` powershell
 # MAKE SURE THIS MATCHES WHAT YOU ADDED TO ARGO CD
 $repoUrl = 'ssh://ds@nas/volume1/homes/ds/git/joy-of-kubernetes.git'
 # Create the directory
@@ -273,7 +277,7 @@ Going back to the applications page, it looks pretty empty. It is time to put so
 
 Get in touch with your imagination and let's get typing. We will deploy an nginx hello world application as "joy-of-kubernetes-1".
 
-``` PowerShell
+``` powershell
 
 # Adding manifest files. ArgoCD will figure out that they are plain manifests, had we put a kustomize structure or helm that would work too
 
@@ -330,7 +334,7 @@ git commit -m "Added the first joy of kubernetes hello world nginx app"
 
 ```
 
-Now our history will look something like this. For my sake I went ahead and added an ingress route for trafik. If you are new to ingress just ignore it. You add what ever you like for your application. It is your world, get creative.
+Now our history will look something like this. For my sake I went ahead and added an ingress route for traefik, the ingress controller that comes bundled with k3s. If you are new to ingress or are using something else you can safely ignore it. You add what ever you like for your application. It is your world, get creative. 🏔🌄⛰🏔🗻🌲🌲
 
 ![](../assets/2023-04-06-19-56-56.png)
 
@@ -351,7 +355,7 @@ Look at that happy little app.
 
 Let's give it a visit with port forwarding like we have done for ArgoCD.
 
-``` PowerShell
+``` powershell
 kubectl port-forward deployment/joy-of-kubernetes-1 8081:80 -n joy-of-kubernetes-1
 ```
 
