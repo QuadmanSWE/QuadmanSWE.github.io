@@ -11,11 +11,11 @@ In this first entry in The Joy of Kubernetes we will explore setting up Argo CD 
   - [Prerequisites 🎨](#prerequisites-)
   - [My git server setup](#my-git-server-setup)
   - [Using a private git repo in development](#using-a-private-git-repo-in-development)
-  - [Installing ArgoCD](#installing-argocd)
-  - [Connecting to git from ArgoCD](#connecting-to-git-from-argocd)
+  - [Installing Argo CD](#installing-argo-cd)
+  - [Connecting to git from Argo CD](#connecting-to-git-from-argo-cd)
     - [Enable auth with new key](#enable-auth-with-new-key)
     - [Trust the server from Argo CD](#trust-the-server-from-argo-cd)
-    - [Add the git repo in ArgoCD](#add-the-git-repo-in-argocd)
+    - [Add the git repo in Argo CD](#add-the-git-repo-in-argo-cd)
   - [Application Sets](#application-sets)
     - [The application set for The Joy Of Kubernetes Series](#the-application-set-for-the-joy-of-kubernetes-series)
     - [Hello World through our Application Set](#hello-world-through-our-application-set)
@@ -66,7 +66,7 @@ As you can see I have successfully connected the git repo on NAS as my remote wi
 
 ![](../assets/2023-04-06-17-55-50.png)
 
-## Installing ArgoCD
+## Installing Argo CD
 
 Allright now we have all the pieces to interact with git.
 
@@ -128,7 +128,7 @@ Once the password was changed I went ahead and dropped the initial password secr
 kubectl delete secret -n argocd argocd-initial-admin-secret
 ```
 
-## Connecting to git from ArgoCD
+## Connecting to git from Argo CD
 
 Okay so Argo CD is running and we can push to a private git repo, let's close the loop and let Argo CD interact with that same repo.
 
@@ -166,9 +166,9 @@ In my case I just repeated [the steps in the intro](#my-git-server-setup)
 
 ### Trust the server from Argo CD
 
-Secondly we need to tell ArgoCD about the git server, using the ssh known hosts built in functionality.
+Secondly we need to tell Argo CD about the git server, using the ssh known hosts built in functionality.
 
-In the ArgoCD web page that we port-forward to, click "settings" and then "Add ssh known hosts" and then follow the instructions.
+In the Argo CD web page that we port-forward to, click "settings" and then "Add ssh known hosts" and then follow the instructions.
 
 ![](../assets/2023-04-06-19-02-44.png)
 
@@ -178,9 +178,9 @@ I added all records I could find of the server and after submitting it looks som
 
 ![](../assets/2023-04-06-19-22-48.png)
 
-### Add the git repo in ArgoCD
+### Add the git repo in Argo CD
 
-Lastly, once the known hosts record is in place and the git server can accept the ssh key, we can set up the repo connection in ArgoCD
+Lastly, once the known hosts record is in place and the git server can accept the ssh key, we can set up the repo connection in Argo CD
 
 Move back to settings and then click "Connect repo"
 
@@ -281,7 +281,7 @@ Get in touch with your imagination and let's get typing. We will deploy an nginx
 
 ``` powershell
 
-# Adding manifest files. ArgoCD will figure out that they are plain manifests, had we put a kustomize structure or helm that would work too
+# Adding manifest files. Argo CD will figure out that they are plain manifests, had we put a kustomize structure or helm that would work too
 
 mkdir ./gitops/joy-of-kubernetes-1;
 
@@ -340,7 +340,7 @@ Now our history will look something like this. For my sake I went ahead and adde
 
 ![](../assets/2023-04-06-19-56-56.png)
 
-Now once this commit is pushed to origin we will start to see things happening in the ArgoCD UI.
+Now once this commit is pushed to origin we will start to see things happening in the Argo CD UI.
 
 ```
 # update origin so that Argo CD can see the changes
@@ -355,7 +355,7 @@ Look at that happy little app.
 
 ![](../assets/2023-04-06-20-01-59.png)
 
-Let's give it a visit with port forwarding like we have done for ArgoCD.
+Let's give it a visit with port forwarding like we have done for Argo CD.
 
 ``` powershell
 kubectl port-forward deployment/joy-of-kubernetes-1 8081:80 -n joy-of-kubernetes-1
