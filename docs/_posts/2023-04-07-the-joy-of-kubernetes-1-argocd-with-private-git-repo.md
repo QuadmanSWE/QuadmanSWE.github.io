@@ -3,11 +3,11 @@ title: The joy of Kubernetes 1 - Argo CD with private git repo
 published: true
 ---
 
-# Argo CD - gitops from a private git repo
+# Welcome to the Joy of Kubernetes
 
 In this first entry in The Joy of Kubernetes we will explore setting up Argo CD and deploying applications through gitops. That is our desired state of our applications are recoreded and versioned controlled in git, while an agent called Argo CD makes sure that state is synchronized into Kubernetes objects in one or more clusters.
 
-- [Argo CD - gitops from a private git repo](#argo-cd---gitops-from-a-private-git-repo)
+- [Welcome to the Joy of Kubernetes](#welcome-to-the-joy-of-kubernetes)
   - [Prerequisites 🎨](#prerequisites-)
   - [My git server setup](#my-git-server-setup)
   - [Using a private git repo in development](#using-a-private-git-repo-in-development)
@@ -222,7 +222,7 @@ $repoUrl = 'ssh://ds@nas/volume1/homes/ds/git/joy-of-kubernetes.git'
 # Create the directory
 mkdir gitops;
 # Write a file with the application set defitinion
-<!-- {% raw %} -->
+{% raw %}
 @"
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
@@ -260,7 +260,7 @@ spec:
         - ApplyOutOfSyncOnly=true
 
 "@ | Out-File ./gitops/root-appset.yaml;
-<!-- {% endraw %} -->
+{% endraw %}
 # Fire that into your cluster
 kubectl apply -f ./gitops/root-appset.yaml;
 ```
