@@ -31,6 +31,8 @@ In this first entry in The Joy of Kubernetes we will explore setting up Argo CD 
 
 Rather than using kubectl for everything you could perhaps be more comfortable using a graphical interface like [the kubernetes dashboard](https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard/), [lens](https://k8slens.dev/) or [k9s](https://k9scli.io/) or whatever you prefer. Check them all out and pick what feels good for you. Personally I use k9s.
 
+![](../assets/2023-04-06-20-54-55.png)
+
 ## My git server setup
 
 So I got this Network Storage server recently and during set up I saw that it came with some cool applications like a git server.
