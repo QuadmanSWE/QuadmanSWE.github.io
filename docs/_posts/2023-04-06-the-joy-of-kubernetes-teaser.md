@@ -19,7 +19,7 @@ I have spun up my old k3s cluster which I have dubbed [Kirchsteigernetes](https:
 
 ![](../assets/2023-04-06-01-45-23.png)
 
-I continued to get expired, here is some of what I expect to publish this year on the blog:
+After the first apps popped up with my appset, I continued to get inspired. Here is some of what I expect to publish this year on the blog:
 
 - Cert-manager using Let's Encrypt for Google Cloud DNS
 - ArgoCD on a local private git repo with ssh.
