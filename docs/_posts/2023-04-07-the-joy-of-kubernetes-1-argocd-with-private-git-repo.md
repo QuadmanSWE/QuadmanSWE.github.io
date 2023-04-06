@@ -190,13 +190,12 @@ Enter a name, default project, the correct full URL to the repo on the server an
 
 Click Connect, hopefully everything will be green. Else check the logs for troubleshooting.
 
-![](../assets/2023-04-06-19-25-51.png)
-
-Green is good, let's check the logs anyway:
-
 ``` powershell
 kubectl logs deployment/argocd-repo-server -n argocd
 ``` 
+Green is good.
+![](../assets/2023-04-06-19-25-51.png)
+
 
 ## Application Sets
 
@@ -205,7 +204,7 @@ ApplicationSets are a great way to combine application defintions with generator
 For example
 
 - Each of these apps need to exist in each of these clusters
-- Every app in this directory should use its directory name as a label
+- Every app in this directory should use meta data from its location as labels
 
 You can read more about application sets in the [Argo CD documentation and user guides](https://argo-cd.readthedocs.io/en/stable/user-guide/application-set/).
 
@@ -223,6 +222,7 @@ $repoUrl = 'ssh://ds@nas/volume1/homes/ds/git/joy-of-kubernetes.git'
 # Create the directory
 mkdir gitops;
 # Write a file with the application set defitinion
+<!-- {% raw %} -->
 @"
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
@@ -260,7 +260,7 @@ spec:
         - ApplyOutOfSyncOnly=true
 
 "@ | Out-File ./gitops/root-appset.yaml;
-
+<!-- {% endraw %} -->
 # Fire that into your cluster
 kubectl apply -f ./gitops/root-appset.yaml;
 ```
