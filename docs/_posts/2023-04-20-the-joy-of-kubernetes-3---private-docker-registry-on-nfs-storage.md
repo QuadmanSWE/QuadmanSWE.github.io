@@ -252,7 +252,7 @@ The down side is that unlike ingress or a virtual service in istio, there is no 
 
 ## Summary
 
-By painting with storage classes, we can make peristent volume claims vibrant and allow us to build stateful applications that shine. Once such application is our own private container registry.
+By painting with storage classes, we can make peristent volume claims vibrant and allow us to build applications that shine with persisted storage from near and far. One such application is our own private container registry.
 
 And there we have it friends, all this guy needs now is our signature. (Signing in, get it?)
 
