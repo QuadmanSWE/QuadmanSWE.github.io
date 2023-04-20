@@ -29,7 +29,7 @@ The goal is to set up a private container registry on our kubernetes cluster usi
 ## Prerequisites 🎨
 
 - ~~A canvas, some brushes, and some paint~~  A kubernetes cluster and kubectl.
-- Optional, Argo CD with the application set creation from [the first post in the series](../he-joy-of-kubernetes-1-argocd-with-private-git-repo).
+- Optional, Argo CD with the application set creation from [the first post in the series](../the-joy-of-kubernetes-1-argocd-with-private-git-repo).
 - The ability to set up NFS storage, or some other storage class
 
 ### Argo CD
