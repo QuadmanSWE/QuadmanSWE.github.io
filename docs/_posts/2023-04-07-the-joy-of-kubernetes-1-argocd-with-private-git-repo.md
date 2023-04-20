@@ -1,5 +1,5 @@
 ---
-title: The joy of Kubernetes 1 - Argo CD with private git repo
+title: The Joy of Kubernetes 1 - Argo CD with private git repo
 published: true
 ---
 
