@@ -168,6 +168,7 @@ version: 0.1.0
 appVersion: "1.0"
 dependencies:
   - name: docker-registry
+    alias: images
     version: 2.2.2
     repository: https://helm.twun.io
 ```
@@ -238,7 +239,7 @@ spec:
     - match: Host(`images.k3s.dsoderlund.consulting`)
       kind: Rule
       services:
-        - name: docker-registry-helm
+        - name: docker-registry-helm-images
           port: 5000
   tls:
     secretName: images-tls
@@ -248,7 +249,13 @@ k3s which I use comes bundled with [traefik](https://github.com/traefik/traefik)
 
 The down side is that unlike ingress or a virtual service in istio, there is no pretty pictures getting drawn in Argo CD. But that is OK.
 
+> docker-registry resources
+
 ![](../assets/2023-04-21-00-28-44.png)
+
+> docker-registry-helm resources
+
+![](../assets/2023-04-24-15-33-51.png)
 
 ## Summary
 
