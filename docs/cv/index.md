@@ -30,7 +30,12 @@ I frequent tech meetups, and am an occasional speaker.
 * Istio
 * Keycloak
 * Terraform
-* Git
+* ArgoCD
+* Crossplane
+* Backstage
+* Typescript
+* NodeJS
+* React
 
 ## High tech industry
 ### Solutions Architect

@@ -61,7 +61,7 @@ task serve stop, remove, {
 task run serve
 
 task surf {
-    Start-Process Chrome "http://localhost:4000"
+    Start-Process firefox "http://localhost:4000"
 }
 
 task newpost {
