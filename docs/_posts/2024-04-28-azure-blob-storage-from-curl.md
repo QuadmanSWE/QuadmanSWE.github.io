@@ -62,6 +62,9 @@ STORAGE_CONTAINER=${STORAGE_CONTAINER:-$3}
 BLOB_PATH=${BLOB_PATH:-$4}
 FILE_PATH=${FILE_PATH:-$5}
 
+# Signing key
+decoded_hex_key="$(echo -n $STORAGE_ACCOUNT_KEY | base64 -d -w0 | xxd -p -c256)"
+
 BLOB_LENGTH=$(wc -c <$FILE_PATH)
 BLOB_TYPE="BlockBlob"
 
