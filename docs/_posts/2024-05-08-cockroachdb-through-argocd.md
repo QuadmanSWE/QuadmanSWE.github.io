@@ -102,6 +102,7 @@ Digging through the helm specification I finally came across the defintion of th
 For reference here is where you can play spot the error:
 
 ``` yaml
+{% raw %}
 # job.init.yaml in cockroachdb/templates
 {{ $isClusterInitEnabled := and (eq (len .Values.conf.join) 0) (not (index .Values.conf `single-node`)) }}
 {{ $isDatabaseProvisioningEnabled := .Values.init.provisioning.enabled }}
@@ -129,6 +130,7 @@ metadata:
     {{- with .Values.init.jobAnnotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
+{% endraw %}
 ```
 
 ArgoCD doesn't run `helm install` or `helm upgrade`, it runs `helm template` and then itself figures out if there is a diff of that intermediate result and what it observes in kubernetes. Thus the job doesn't actually get considered.
