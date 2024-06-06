@@ -25,7 +25,7 @@ Chances are if you are reading this you already know a bit about [ArgoCD](https:
 
 ## cdk8s in short
 
-cdk8s and similar tools allows you to generate the kubnernets json or yaml in a way that is a bit more advanced than kustomize. Where as helm is a way to package apps for different types of consumption, and kustomize allows you to manipulate simple yaml further, cdk8s is a more heavy weight ground up yaml generation in different high level languages.
+[cdk8s](https://cdk8s.io/) and similar tools allows you to generate the kubernetes json or yaml in a way that is a bit more advanced than kustomize. Where as helm is a way to package apps for different types of consumption, and kustomize allows you to manipulate simple yaml further, cdk8s is a more heavy weight ground up yaml generation in different high level languages.
 
 In my example I am generating a deployment and a service with typescript, while also adding some extra npm packages for string manipulation.
 
