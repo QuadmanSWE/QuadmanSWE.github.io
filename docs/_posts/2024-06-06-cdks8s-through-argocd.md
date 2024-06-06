@@ -7,9 +7,10 @@ published: true
   - [ArgoCD in short](#argocd-in-short)
   - [cdk8s in short](#cdk8s-in-short)
     - [An example](#an-example)
-  - [Adding a cdk8s plugin to argocd](#adding-a-cdk8s-plugin-to-argocd)
+  - [Adding a cdk8s plugin to ArgoCD](#adding-a-cdk8s-plugin-to-argocd)
     - [Dockerfile](#dockerfile)
     - [Plugging in as an argo-repo-server sidecar](#plugging-in-as-an-argo-repo-server-sidecar)
+    - [Results when using the plugin](#results-when-using-the-plugin)
     - [ArgoCD documentation and further reading](#argocd-documentation-and-further-reading)
   - [The point of all this](#the-point-of-all-this)
 
@@ -20,9 +21,7 @@ cdk8s is a tool from AWS to be able to deal with kubernetes manifests in an impe
 
 ## ArgoCD in short
 
-Chances are if you are reading this you already know a bit about ArgoCD. It allows us to package kubernetes manifests in "applications" which helps to compartmentalize things that you are managing inside kubernetes as well as giving a cli and a UI in that abstraction level. For each application we can choose how we want to observe and synchronize the declared state of our application as ArgoCD he from git into kubernetes.
-
-https://argo-cd.readthedocs.io/en/stable/
+Chances are if you are reading this you already know a bit about [ArgoCD](https://argo-cd.readthedocs.io/en/stable/). It allows us to package kubernetes manifests in "applications" which helps to compartmentalize things that you are managing inside kubernetes as well as giving a cli and a UI in that abstraction level. For each application we can choose how we want ArgoCD to observe and synchronize the declared state of our application from git to kubernetes.
 
 ## cdk8s in short
 
@@ -146,15 +145,15 @@ spec:
 
 ```
 
-## Adding a cdk8s plugin to argocd
+## Adding a cdk8s plugin to ArgoCD
 
-While learning about cdk8s I was surprised to learn that it didn't work out of the box with argocd, and that I couldn't find any pre-made plugins.
+While learning about cdk8s I was surprised to learn that it didn't work out of the box with ArgoCD, and that I couldn't find any pre-made plugins.
 
-I did however come across [this great post about cdk8s by Max Brenner](https://shipit.dev/posts/integrating-cdk8s-with-argocd.html) and also [their repository on how to run cdk8s in a container](https://github.com/brennerm/cdk8s-docker).
+I did however come across [this great post about cdk8s by Max Brenner](https://shipit.dev/posts/integrating-cdk8s-with-ArgoCD.html) and also [their repository on how to run cdk8s in a container](https://github.com/brennerm/cdk8s-docker).
 
 ### Dockerfile
 
-From there I built my own version of the typescript container such that it would work without running as root which argocd plugins are not allowed to do for good reason.
+From there I built my own version of the typescript container such that it would work without running as root which ArgoCD plugins are not allowed to do for good reason.
 
 ``` Dockerfile
 # docker.io/dsoderlund/cdk8s:typescript
@@ -176,14 +175,22 @@ The entrypoint.sh script allows you to run this from the command line and get it
 
 ### Plugging in as an argo-repo-server sidecar
 
-So the idea here is that we want argocd repository server to render the yaml for us by invoking `cdk8s synth` for an app just like it does for helm, kustomize, or plain yaml. It should do this if it knows that it is a cdk8s-typescript style apps which is evident by the presence of the file `./imports/k8s.ts`.
+So the idea here is that we want ArgoCD repository server to render the yaml for us by invoking `cdk8s synth` for an app just like it does for helm, kustomize, or plain yaml. ArgoCD should do this if it can tell that it is seeing a cdk8s-typescript style application. This will be evident by the presence of the file `./imports/k8s.ts`.
 
-There is a working example you can clone and run in [my reference platform github repo](https://github.com/QuadmanSWE/ds-ref-platform/blob/main/2_platform/argocd/kustomization.yaml). Here is what the running app looks like through argocd.
+The execution has three parts, init, command, and discover.
 
-![](../assets/2024-06-06-15-03-01.png)
+- Init will run before anything else to make preparations. `npm install` will make sure the container has everything needed to perform the `cdk8s synth` step. This will be cached in the container and kept for future ArgoCD synchs of the app.
+
+- Command executes the synth, ignores any direct output, and then reads the resulting file(s) from the dist folder.
+
+- Discover helps repo-server know that this is infact a cdk8s-typescript style application and that this plugin applies.
+
+There is a working example you can clone and run in [my reference platform github repo](https://github.com/QuadmanSWE/ds-ref-platform/blob/main/2_platform/argocd/kustomization.yaml).
+
+This is an excerpt of that working example that highlights the parts that configures and injects the plugin.
 
 ``` yaml
-# ... Removed for brevity, imagine an argocd helm values declaration.
+# ... Removed for brevity, imagine an ArgoCD helm values declaration.
 configs:
   cmp:
     create: true
@@ -229,6 +236,13 @@ repoServer:
     - name: cmp-tmp
       emptyDir: {}
 ```
+
+### Results when using the plugin
+
+Here is what the running app looks like through ArgoCD.
+
+![](../assets/2024-06-06-15-03-01.png)
+
 
 ### ArgoCD documentation and further reading
 
