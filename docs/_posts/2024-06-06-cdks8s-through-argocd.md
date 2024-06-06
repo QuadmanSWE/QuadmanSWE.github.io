@@ -246,7 +246,7 @@ Here is what the running app looks like through ArgoCD.
 
 ### ArgoCD documentation and further reading
 
-[Here is the docs for how these config mangement plugins works.](https://argo-cd.readthedocs.io/en/stable/operator-manual/config-management-plugins/) I also recommend reading [this](https://dev.to/ali_nazari_f9773d74e0b0e4/using-cdk8s-ytt-or-gomplate-with-argocd-through-config-management-plugins-4f6g) and [this](https://codefresh.io/blog/using-argo-cds-new-config-management-plugins-to-build-kustomize-helm-and-more/) article which though using different approaches and a bit different end results than what I am after, do a great job in explaining what all the different parts are.
+[Here is the docs for how these config management plugins works.](https://argo-cd.readthedocs.io/en/stable/operator-manual/config-management-plugins/) I also recommend reading [this](https://dev.to/ali_nazari_f9773d74e0b0e4/using-cdk8s-ytt-or-gomplate-with-argocd-through-config-management-plugins-4f6g) and [this](https://codefresh.io/blog/using-argo-cds-new-config-management-plugins-to-build-kustomize-helm-and-more/) article which though using different approaches and a bit different end results than what I am after, do a great job in explaining what all the different parts are.
 
 
 ## The point of all this
