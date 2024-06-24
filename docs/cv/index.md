@@ -3,7 +3,7 @@ layout: cv
 title: David Söderlund's CV
 ---
 # David Söderlund
-Microsoft Data Platform and Devops Consultant
+Independent Devops and Platforms Engineer
 
 <div id="webaddress">
 <a href="mailto:info@dsoderlund.consulting">info@dsoderlund.consulting</a>
@@ -50,13 +50,13 @@ The application interacts with different users and systems.
 ## Tunstall Nordic
 ### DevOps
 
-`2018-Current`
+`2018-2024`
 
-I work in the platform team helping developers and operations to bridge their gap.
+I worked in the platform team "global system team" helping developers and operations to bridge their gap.
 
 I've built frameworks, modules, and solutions to bring stateful legacy solutions into CI/CD.
 
-When the customer chose to develop against kubernetes, I've helped out in how developers and operations can get the most out of that platform.
+When the customer chose to develop and deploy with kubernetes, I've helped out in how they could get the most out of that platform.
 
 ## Saxo Bank
 ### Data Warehouse Development
@@ -149,4 +149,4 @@ Available on request.
 
 <!-- ### Footer
 
-Last updated: August 2022 -->
+Last updated: June 2024 -->
