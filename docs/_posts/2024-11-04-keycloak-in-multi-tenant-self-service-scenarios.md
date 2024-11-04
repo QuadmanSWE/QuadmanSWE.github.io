@@ -12,6 +12,7 @@ This is a guide on how to get up and running with the phasetwo open source solut
   - [background (story time)](#background-story-time)
   - [New developments ( that time I actually set this up myself in production )](#new-developments--that-time-i-actually-set-this-up-myself-in-production-)
   - [My implementation solution ( more story time )](#my-implementation-solution--more-story-time-)
+    - [Goals](#goals)
   - [How I did it](#how-i-did-it)
     - [Container image ( I used docker )](#container-image--i-used-docker-)
   - [Bootstrap deployment](#bootstrap-deployment)
@@ -58,7 +59,9 @@ As one sysadmin redditor put it ["Azure B2C custom polices - welcome to hell :).
 - There are no users, only claims mapping
 - Everything is done with custom policies that require their own entire skill set apart from oidc.
 
-Other recommended reading for catharsis on horrible developer experience is [this series on Azure B2C from netglade](https://www.netglade.cz/en/blog/azure-active-directory-b2c-developer-experience)
+Other recommended reading for catharsis on horrible developer experience is [this series on Azure B2C from netglade](https://www.netglade.cz/en/blog/azure-active-directory-b2c-developer-experience).
+
+## My implementation solution ( more story time )
 
 Faced with this I suggested we spin up a simple keycloak using their existing pattern of azure web apps and azure sql database.
 
@@ -66,7 +69,7 @@ Faced with this I suggested we spin up a simple keycloak using their existing pa
 
 In my reference platform you can get this running with kubernetetes and postgres instead. Link at the bottom of the post. [The code to get the custom image is here](https://github.com/QuadmanSWE/ds-ref-platform/tree/main/multitenant-keycloak).
 
-## My implementation solution ( more story time )
+### Goals
 
 I wanted to not use database credentials since azure sql supports integrated security and so does jdbc with the right libraries.
 
@@ -74,11 +77,11 @@ I wanted to run keycloak in the root path (/) instead of the legacy (/auth) path
 
 ## How I did it
 
-New web app for linux containers, enabled system managed identity and set up dns forwarding with free cert using the ui ( txt and cname record in customers DNS)
+- New web app for linux containers, enabled system managed identity and set up dns forwarding with free cert using the ui ( txt and cname record in customers DNS)
 
-Database added to a server that supports only entraid auth.
+- Database added to a server that supports only entraid auth.
 
-New user in that database for the web apps managed identity. Granted that user db_owner role.
+- New user in that database for the web apps managed identity. Granted that user db_owner role.
 
 
 ### Container image ( I used docker )
