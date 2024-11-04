@@ -6,7 +6,7 @@ param(
 )
 $rootdir = git rev-parse --show-toplevel
 task proofread {
-    $learntospellyoudunce = @("kubernets", "kuberen", "oath", "serer")
+    $learntospellyoudunce = @("kubernets", "kuberen", "oath", "serer", "challange")
     $spellingmisstakes = gci "$rootdir/docs/_posts/*.md" | % {
         gc $_ | Select-String -Pattern $learntospellyoudunce
     }
