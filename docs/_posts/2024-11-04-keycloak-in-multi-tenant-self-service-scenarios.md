@@ -34,7 +34,7 @@ Here is the [plugin collection from phasetwo](https://github.com/p2-inc/keycloak
 
 As covered in the video, challenges with single realm multitenancy is that information gets leaked about other tenants and users. The issue with multi realm is configuration complexity and duplication of effort.
 
-Also if you have the money to spend on development or staffing for operating this solution, the prices for their managed service is very reasonable. Consider buying instead of rolling your own. https://phasetwo.io/
+Also if you have the money to spend on development or staffing for operating this solution, the prices for their managed service is very reasonable. Consider buying instead of rolling your own. [https://phasetwo.io/](https://phasetwo.io/)
 
 ## New developments ( that time I actually set this up myself in production )
 
