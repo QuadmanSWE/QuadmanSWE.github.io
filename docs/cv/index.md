@@ -37,6 +37,13 @@ I frequent tech meetups, and am an occasional speaker.
 * NodeJS
 * React
 
+## Shopspray
+### DevOps
+
+`October 2024`
+
+I made CI/CD pipelines in Azure for Shopsprays punchout solution and then built infrastructure for some of their new offerings. I was then consulted on how to get a viable identity and access management solution in place and set up and handed over a working keycloak with multi tenancy and self service single sign on for their customers to use.
+
 ## High tech industry
 ### Solutions Architect
 
@@ -45,7 +52,6 @@ I frequent tech meetups, and am an occasional speaker.
 I designed a SQL Server database application and set up the pipeline to get development rolling with CI/CD out of the gate.
 I lead a team developing this application to help optimize return of investment in refining raw materials.
 The application interacts with different users and systems.
-
 
 ## Tunstall Nordic
 ### DevOps
@@ -57,6 +63,8 @@ I worked in the platform team "global system team" helping developers and operat
 I've built frameworks, modules, and solutions to bring stateful legacy solutions into CI/CD.
 
 When the customer chose to develop and deploy with kubernetes, I've helped out in how they could get the most out of that platform.
+
+I set up a CI/CD pipeline for backstage on top of Azure Kubernetes Services and helped support the platform, both helping develop custom plugins and integrating useful ones as Azure pull request and pipeline dashboards, argocd links to each deployment of each component, and a lot of software templates.
 
 ## Saxo Bank
 ### Data Warehouse Development
