@@ -94,7 +94,7 @@ I imprinted all environment variables and phasetwo runtime arguments for email w
 
 Plugins/augmentations
 
-- Microsofts documented [JDBC driver dependencies for their identity management]([koreui](https://learn.microsoft.com/en-us/sql/connect/jdbc/connecting-using-azure-active-directory-authentication?view=sql-server-ver16#client-setup-requirements))
+- Microsofts documented [JDBC driver dependencies for their identity management](https://learn.microsoft.com/en-us/sql/connect/jdbc/connecting-using-azure-active-directory-authentication?view=sql-server-ver16#client-setup-requirements)
 
 - Customized idp wizard to work at root path
 
