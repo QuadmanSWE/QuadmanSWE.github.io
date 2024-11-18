@@ -8,9 +8,9 @@ Independent Devops and Platforms Engineer
 <div id="webaddress">
 <a href="mailto:info@dsoderlund.consulting">info@dsoderlund.consulting</a>
 |
-<i class="fa fa-github"></i> <a href="http://github.com/QuadmanSWE">QuadmanSWE</a>
+<i class="fab fa-github"></i> <a href="https://github.com/QuadmanSWE">QuadmanSWE</a>
 |
-<i class="fa fa-twitter"></i> <a href="http://twitter.com/QuadmanSWE">QuadmanSWE</a>
+<i class="fab fa-bluesky"></i> <a href="https://bsky.app/profile/dsoderlund.consulting">@dsoderlund.consulting</a>
 </div>
 
 ## About me
@@ -144,11 +144,11 @@ Applicable Computer Science – Internet technology
 
 
 ## Links
-* <i class="fa fa-envelope"></i> <a href="mailto:info@dsoderlund.consulting">info@dsoderlund.consulting</a><br />
-* <i class="fa fa-github"></i> <a href="https://github.com/QuadmanSWE">QuadmanSWE</a><br />
-* <i class="fa fa-twitter"></i> <a href="https://twitter.com/QuadmanSWE">QuadmanSWE</a><br />
-* <i class="fa fa-linkedin"></i> <a href="https://www.linkedin.com/in/soderlunddavid/">soderlunddavid</a>
-* <i class="fa fa-stack-overflow"></i> <a href="https://stackoverflow.com/users/2131680/david-s%c3%b6derlund">david-söderlund</a>
+* <i class="fa-solid fa-envelope"></i> <a href="mailto:info@dsoderlund.consulting">info@dsoderlund.consulting</a><br />
+* <i class="fa-brands fa-github"></i> <a href="https://github.com/QuadmanSWE">QuadmanSWE</a><br />
+* <i class="fa-brands fa-bluesky"></i> <a href="https://bsky.app/profile/dsoderlund.consulting">@dsoderlund.consulting</a><br />
+* <i class="fa-brands fa-linkedin"></i> <a href="https://www.linkedin.com/in/soderlunddavid/">soderlunddavid</a>
+* <i class="fa-brands fa-stack-overflow"></i> <a href="https://stackoverflow.com/users/2131680/david-s%c3%b6derlund">david-söderlund</a>
 
 
 ## References

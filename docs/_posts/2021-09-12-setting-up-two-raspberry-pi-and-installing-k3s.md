@@ -105,7 +105,7 @@ sed -i 's/UsePAM yes.*/UsePAM no/' /etc/ssh/sshd_config
 printf %s " cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory" >> /boot/cmdline.txt
 
 ```
-> 📝 Not sure if it is an intermittent problem or if I appended to the cmdline.txt file improperly but I had to at least once remove an extra empty line from that file after writing to get container features running properly. Let me know on twitter if you have any input.
+> 📝 Not sure if it is an intermittent problem or if I appended to the cmdline.txt file improperly but I had to at least once remove an extra empty line from that file after writing to get container features running properly. Let me know if you have any input.
 
 Now repeat that step for each worker node (in my case the only one)
 
