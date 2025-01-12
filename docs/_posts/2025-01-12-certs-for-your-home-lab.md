@@ -1,11 +1,26 @@
 ---
-title: Certificates for your homelab or office servers
+title: Automating homelab server certificate rotation
 published: true
 ---
 
 # Certificates for your homelab or office servers
 
 In this post I will show you how to use cronjobs in kubernetes to automate the updating of certificates from cert-manager to different servers in your local network.
+
+- [Certificates for your homelab or office servers](#certificates-for-your-homelab-or-office-servers)
+  - [Background](#background)
+    - [Tell me, where do certificates come from?](#tell-me-where-do-certificates-come-from)
+    - [My list of servers](#my-list-of-servers)
+    - [Cron jobs](#cron-jobs)
+  - [Bringing the plan to life](#bringing-the-plan-to-life)
+    - [Some preparation](#some-preparation)
+    - [The certificate request](#the-certificate-request)
+    - [The cron jobs](#the-cron-jobs)
+      - [Certificate files through ssh](#certificate-files-through-ssh)
+      - [Running the script](#running-the-script)
+    - [Proxmox web api](#proxmox-web-api)
+    - [The final result](#the-final-result)
+
 
 ## Background
 
