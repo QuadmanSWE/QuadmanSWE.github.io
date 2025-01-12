@@ -132,7 +132,7 @@ First I needed to make sure that a new ssh key pair got generated and added for 
 ssh-keygen -t ed25519 -b 4096 -f id_ed25519 -C "kubernetes@talos" -N ""
 
 # copies the content of the public key file and appends it to authorized_keys on the pi-hole
-scp id_ed25519.pub ds@pi.hole:~/.ssh/tempfile
+scp id_ed25519.pub ds@pihole.office.dsoderlund.consulting:~/.ssh/tempfile
 ssh ds@pihole.office.dsoderlund.consulting "cat ~/.ssh/tempfile >> ~/.ssh/authorized_keys"
 ssh ds@pihole.office.dsoderlund.consulting "rm tempfile"
 
