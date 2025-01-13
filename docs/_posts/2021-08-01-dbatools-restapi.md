@@ -1,6 +1,8 @@
 ---
 title: Running dbatools as a REST API
 published: true
+excerpt: |
+    RESTful API that leverages dbatools to manage sql server instances without your application having PowerShell or dbatools
 ---
 
 # RESTful API that leverages dbatools to manage sql server instances without your application having PowerShell or dbatools

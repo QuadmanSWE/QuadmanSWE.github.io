@@ -1,6 +1,7 @@
 ---
 title: Azure blob storage from curl
 published: true
+excerpt_separator: <!--more-->
 ---
 
 # Upload large files from tiny devices to Azure blob storage
@@ -8,6 +9,8 @@ published: true
 This week I got to work on something a bit different from my normal wheel house. 
 
 I published [my source code here](https://github.com/QuadmanSWE/curl-blob) including examples for different auth schemes and different mechanisms of invokation
+
+<!--more-->
 
 ## Scope
 

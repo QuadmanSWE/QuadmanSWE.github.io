@@ -74,7 +74,15 @@ task newpost {
 ---
 title: $postname
 published: true
+excerpt_separator: <!--more-->
 ---
+
+Exerpt!
+
+<!--more-->
+
+Content here
+
 "@ | out-file $postfile -Encoding utf8
     code $postfile
 }

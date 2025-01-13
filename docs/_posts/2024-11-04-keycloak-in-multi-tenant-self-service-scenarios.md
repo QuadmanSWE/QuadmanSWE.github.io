@@ -1,22 +1,21 @@
 ---
 title: Keycloak in multi-tenant self service scenarios
 published: true
+excerpt_separator: <!--more-->
 ---
-
-# Keycloak multitenancy in a single realm
 
 This is a guide on how to get up and running with the phasetwo open source solution to the problem of true multitenancy with per tenant self service of single sign on and roles.
 
+<!--more-->
 
-- [Keycloak multitenancy in a single realm](#keycloak-multitenancy-in-a-single-realm)
-  - [background (story time)](#background-story-time)
-  - [New developments ( that time I actually set this up myself in production )](#new-developments--that-time-i-actually-set-this-up-myself-in-production-)
-  - [My implementation solution ( more story time )](#my-implementation-solution--more-story-time-)
-    - [Goals](#goals)
-  - [How I did it](#how-i-did-it)
-    - [Container image ( I used docker )](#container-image--i-used-docker-)
-  - [Bootstrap deployment](#bootstrap-deployment)
-  - [Example implemenation](#example-implemenation)
+- [background (story time)](#background-story-time)
+- [New developments ( that time I actually set this up myself in production )](#new-developments--that-time-i-actually-set-this-up-myself-in-production-)
+- [My implementation solution ( more story time )](#my-implementation-solution--more-story-time-)
+  - [Goals](#goals)
+- [How I did it](#how-i-did-it)
+  - [Container image ( I used docker )](#container-image--i-used-docker-)
+- [Bootstrap deployment](#bootstrap-deployment)
+- [Example implemenation](#example-implemenation)
 
 
 

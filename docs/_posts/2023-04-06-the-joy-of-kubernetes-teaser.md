@@ -1,11 +1,14 @@
 ---
 title: The joy of Kubernetes - Teaser
 published: true
+excerpt_separator: <!--more-->
 ---
 
 Hello there. Over the coming weeks I hope to share some of the fun stuff I have had with the setup I run at home.
 
 I was thinking of picking up [painting like Bob Ross](https://www.twitch.tv/bobross), but I fell back on Kubernetes instead and it gives me comparable joy.
+
+<!--more-->
 
 First of I got a new standing desk that will help me with my problems with back-ache, pretty cool.
 

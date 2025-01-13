@@ -1,6 +1,7 @@
 ---
 title: Quick guide to kubernetes on raspberry pi
 published: true
+excerpt_separator: <!--more-->
 ---
 
 # Beyond Minikube - setting up two raspberry pi with k3s to get experience with kubernetes.
@@ -8,6 +9,8 @@ published: true
 The scope of this post is not to give an introduction to what kubernetes is or why to use it.
 
 Chances are if you find this post that you want to build a physical cluster on your home network and practice deploying services to it.
+
+<!--more-->
 
 We will be using [k3s from rancher](https://k3s.io/) as our kubernetes distro.
 

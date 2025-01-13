@@ -1,6 +1,8 @@
 ---
 title: The Joy of Kubernetes 2 - Let us Encrypt
 published: true
+excerpt: |
+  In this second entry in The Joy of Kubernetes we will take a closer look at the Cert-Manager and it's ClusterIssuer resource. I am interested in requesting and issuing TLS certificates as secrets in kubernetes by just asking nicely, particulary for a real external DNS.
 ---
 
 # Welcome to the Joy of Kubernetes

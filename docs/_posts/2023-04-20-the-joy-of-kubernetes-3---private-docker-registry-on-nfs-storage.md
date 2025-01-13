@@ -1,6 +1,7 @@
 ---
 title: The Joy of Kubernetes 3 - Private Docker registry on NFS storage
 published: true
+excerpt_separator: <!--more-->
 ---
 
 # Welcome to the Joy of Kubernetes.
@@ -10,6 +11,8 @@ Hi everyone, so glad you could join us today and enjoy deploying some useful too
 If you are painting along at home, this one might be an episode where you need to take some brave creative efforts.
 
 The goal is to set up a private container registry on our kubernetes cluster using external storage.
+
+<!--more-->
 
 - [Welcome to the Joy of Kubernetes.](#welcome-to-the-joy-of-kubernetes)
   - [Prerequisites 🎨](#prerequisites-)

@@ -1,11 +1,14 @@
 ---
 title: The Joy of Kubernetes 1 - Argo CD with private git repo
 published: true
+excerpt_separator: <!--more-->
 ---
 
 # Welcome to the Joy of Kubernetes
 
 In this first entry in The Joy of Kubernetes we will explore setting up Argo CD and deploying applications through gitops. That is our desired state of our applications are recoreded and versioned controlled in git, while an agent called Argo CD makes sure that state is synchronized into Kubernetes objects in one or more clusters.
+
+<!--more-->
 
 - [Welcome to the Joy of Kubernetes](#welcome-to-the-joy-of-kubernetes)
   - [Prerequisites 🎨](#prerequisites-)
