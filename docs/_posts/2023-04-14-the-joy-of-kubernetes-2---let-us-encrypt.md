@@ -1,6 +1,7 @@
 ---
-title: The Joy of Kubernetes 2 - Let us Encrypt
+title: "The Joy of Kubernetes 2 - Let us Encrypt"
 published: true
+excerpt_separator: <!--more-->
 ---
 
 # Welcome to the Joy of Kubernetes
@@ -8,6 +9,8 @@ published: true
 If you are new to the series, check out [the previous post](../the-joy-of-kubernetes-1-argocd-with-private-git-repo) about Argo CD if you like, we will leverage Argo CD a bit to deploy what we are doing today. You can just as well replace Argo CD with applying the manifests or helm charts manually.
 
 In this second entry in The Joy of Kubernetes we will take a closer look at the Cert-Manager and it's ClusterIssuer resource. I am interested in requesting and issuing TLS certificates as secrets in kubernetes by just asking nicely, particulary for a real external DNS.
+
+<!--more-->
 
 - [Welcome to the Joy of Kubernetes](#welcome-to-the-joy-of-kubernetes)
   - [Prerequisites 🎨](#prerequisites-)

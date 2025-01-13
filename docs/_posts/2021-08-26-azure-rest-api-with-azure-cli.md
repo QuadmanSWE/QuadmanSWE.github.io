@@ -1,6 +1,8 @@
 ---
 title: Interacting with the Azure Rest API with Azure CLI
 published: true
+excerpt: |
+    Point to Site VPN in Azure cannot offer DNS service for private DNS zones. You can deploy a virtual machine or container on the network to act as a proxy / dns-forwarder. When the automatic stuff fails for some reason, you might have get your hands dirty with Azure's Rest API.
 ---
 
 # Azure Rest API with Azure CLI - az rest to the rescue

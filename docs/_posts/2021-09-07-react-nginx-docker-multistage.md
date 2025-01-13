@@ -1,6 +1,7 @@
 ---
 title: Exploring multi-stage build in docker to learn javascript in the future
 published: true
+excerpt_separator: <!--more-->
 ---
 
 # Building a simple react web app on docker that can be hosted anywhere
@@ -8,6 +9,8 @@ published: true
 I wanted to learn how to create a plain and simple front end to serve some buttons for rest apis or azure runbooks that we are building.
 
 This way I get a chance to learn something other than powershell and sql and others get invited to show off their skills with typescript and css to make my buttons prettier.
+
+<!--more-->
 
 Disclaimer: the multi-stage docker method in this blogpost is derived from [this excellent blog post by Nick Scialli](https://typeofnan.dev/how-to-serve-a-react-app-with-nginx-in-docker/).
 

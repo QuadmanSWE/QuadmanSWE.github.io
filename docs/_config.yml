@@ -5,7 +5,7 @@ author:
   name: "David Söderlund"
   email: info@dsoderlund.consulting
   url: "https://blog.dsoderlund.consulting"
-  bluesky_username: QuadmanSWE
+  bluesky_username: dsoderlund.consulting
   github_username:  QuadmanSWE
   linkedin_username: soderlunddavid
   
@@ -32,6 +32,7 @@ plugins:
   - jekyll-paginate
   - jekyll-sitemap
   - jekyll-spaceship
+  - jekyll-feed
 
 
 # Where things are
@@ -96,3 +97,5 @@ jekyll-spaceship:
       class: emoji
     src: https://github.githubassets.com/images/icons/emoji/
 google_analytics: UA-263169605-1
+feed:
+  excerpt_only: true

@@ -1,6 +1,8 @@
 ---
 title: Sample Page
-published: true
+published: false
+excerpt: |
+  This is the first post of this blog documenting what it was like to create this blog
 ---
 
 Text can be **bold**, _italic_, ~~strikethrough~~ or `keyword`.

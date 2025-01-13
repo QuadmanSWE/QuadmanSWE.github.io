@@ -1,6 +1,7 @@
 ---
 title: CockroachDB through ArgoCD
 published: true
+excerpt_separator: <!--more-->
 ---
 
 # ArgoCD is awesome until it isn't
@@ -8,6 +9,8 @@ published: true
 A devteam have an application that they want to try out with cockroachdb. They send me the helm chart to run and I plug it into argocd to try it in our kubernetes cluster.
 
 Everything turned red and nothing seems to work. Oh no.
+
+<!--more-->
 
 ## Two issues 
 
