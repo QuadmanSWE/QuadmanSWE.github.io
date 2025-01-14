@@ -22,11 +22,11 @@ Among other things it lets you specify that your app will use pub/sub through th
 
 In your actual runtime environment (we run kubernetes), you install an operator that will look out for apps running with dapr.
 
-On kubernetes you would annotate your apps and dapr will inject a sidecar container in the respective pods to handle what ever you need, like getting messages off a specific topic.
+On kubernetes you would annotate your apps and dapr will inject a sidecar container in the respective pods to handle what ever you need, like getting messages from a specific topic.
 
 ## Setting up a simple system
 
-Using the [example given by Viktor Farcic](https://gist.github.com/vfarcic/8d941690a087b0de0e2731a52cfb1f51) [his video about dapr](https://youtu.be/-4sHUvfk2Eg) which you should totally check out, we started out just making sure we understood how the sidecar injection worked.
+Using the [example given by Viktor Farcic](https://gist.github.com/vfarcic/8d941690a087b0de0e2731a52cfb1f51) in [his video about dapr](https://youtu.be/-4sHUvfk2Eg) which you should totally check out, we started out just making sure we understood how the sidecar injection worked.
 
 ### Dapr runtime in kubernetes
 
@@ -164,4 +164,4 @@ And look at that, same exact app code for all three apps but the dapr sidecars i
 
 ## Conclusion
 
-Now we know that when we continue on with developing our applications that will connect over pub/sub, we can ignore the choice of implementation. We can test out different infrastructure with our workload and make an informed decision based on what we see without having to make sacrifices in our code base.
+Now we are comfortable that when we continue on with developing our applications that will connect over pub/sub, equipped with the knowledge that we can ignore the choice of implementation. We can test out different infrastructure for pub/sub with our workload and make an informed decision based on what we learn next - without having to make sacrifices in our code base up front.
