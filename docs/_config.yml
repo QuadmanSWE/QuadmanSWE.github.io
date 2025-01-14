@@ -99,3 +99,4 @@ jekyll-spaceship:
 google_analytics: UA-263169605-1
 feed:
   excerpt_only: true
+  posts_limit: 15
