@@ -22,7 +22,7 @@ This is a guide on how to get up and running with the phasetwo open source solut
 
 ## background (story time)
 
-I have set up and worked a lot with keycloak for an internal developer platform for a customer. We had great success with it and another team at the customer then went on and started using keycloak for a bunch of advanced oidc stuff in their legacy applications wich was very rewarding to hear about. In one green field project they were also toying with the idea of allowing their customers to manage some of their settings through some portal for access to their apps.
+I have set up and worked a lot with keycloak for an internal developer platform for a customer. We had great success with it and another team at the customer then went on and started using keycloak for a bunch of advanced oidc stuff in their legacy applications which was very rewarding to hear about. In one green field project they were also toying with the idea of allowing their customers to manage some of their settings through some portal for access to their apps.
 
 ![Sketch of authentication for different users to some set of applications](../assets/2024-11-04-img1-keycloak-tenants-users.png)
 
@@ -87,7 +87,7 @@ I wanted to run keycloak in the root path (/) instead of the legacy (/auth) path
 
 I imprinted all environment variables and phasetwo runtime arguments for email with optimized build.
 
-- Edge proxy (no cert in the image, azure does tls termniation)
+- Edge proxy (no cert in the image, azure does tls termination)
 
 - Database URL (look mum, no username/password)
 
@@ -106,7 +106,7 @@ Keycloak deploys its own database schema but you need local access to create the
 
 Then I enabled the plugins visibility by setting that theme in the realm. I went ahead and renamned the realm and import logos and stuff.
 
-I then created my own orginization and could then assign nyself roles in it to demonstrate self service of SSO.
+I then created my own orginization and could then assign myself roles in it to demonstrate self service of SSO.
 
 I connected to my companys google auth with oidc and could then remove my password.
 
