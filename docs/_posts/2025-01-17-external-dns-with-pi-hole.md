@@ -113,7 +113,7 @@ I had previously set up my gateway to pick up traffic from any matching DNS name
 
 > time="2025-01-16T19:53:40Z" level=error msg="Failed to do run once: soft error\nUNSUPPORTED: Pihole DNS names cannot return wildcard"
 
-The IP address *192.168.0.32* is the one metallb assigned to my istio ingress service, which is how external-dns knows what it is supposed to tell pihole that the DNS record is for.
+The IP address *192.168.0.32* is the one [metallb](https://metallb.io/) assigned to my istio ingress service, which is how external-dns knows what it is supposed to tell pihole that the DNS record is for.
 
 I simply updated my hostname list in the gateway with the names I needed, and after syncing with argocd things started happening in the pihole.
 
