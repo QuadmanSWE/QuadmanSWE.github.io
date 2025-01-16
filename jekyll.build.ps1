@@ -3,6 +3,7 @@ param(
     [parameter()]$jekyllversion = '4',
     [parameter()]$servecontainername = 'jekyll-serve',
     [parameter()][string]$postname = '',
+    [parameter()][int]$cutoffMinutes = 5,
     [switch]$wait
 )
 $rootdir = git rev-parse --show-toplevel
@@ -17,9 +18,8 @@ task proofread {
     }
 }
 task new {
-    mkdir docs -ea 0 | out-null
+    New-Item -ItemType Directory -ErrorAction SilentlyContinue -Path docs | Out-Null
     push-location $rootdir/docs
-
     #new
     docker run --rm -it --volume="$($PWD):/srv/jekyll" --env JEKYLL_ENV=production jekyll/jekyll:4 jekyll new . --force
 
@@ -27,15 +27,15 @@ task new {
 }
 
 task build {
-    if (test-path .\docs) {
-        Push-Location $rootdir/docs
-        #build
-        docker run --rm -it --volume="$($PWD):/srv/jekyll" --volume="$PWD/vendor/bundle:/usr/local/bundle" --env JEKYLL_ENV=production jekyll/jekyll:$jekyllversion /bin/sh -c "bundle install && jekyll build"
-        Pop-Location
+    if (-not (test-path .\docs)) {
+        throw "You cannot build what does not exist, run invokebuild new first!"
     }
-    else {
-        throw "You cannot build what does not exist, run invoke-build new first!"
-    }
+    Push-Location $rootdir/docs
+    #build
+    docker run --rm -it --volume="$($PWD):/srv/jekyll" --volume="$PWD/vendor/bundle:/usr/local/bundle" --env JEKYLL_ENV=production jekyll/jekyll:$jekyllversion /bin/sh -c "bundle install && jekyll build"
+    Pop-Location
+    
+
 }
 
 task remove stop, {
@@ -108,4 +108,24 @@ Content here
     code $postfile
 }
 
+task importImages {
+    if($IsLinux -eq $true) {
+        $screenshotdir = Get-Item ~/Pictures
+        $prefixToRemove = 'Screenshot from '
+    }
+    elseif($IsWindows -eq $true) {
+        $screenshotdir = Get-Item ~/OneDrive/Pictures/Screenshots
+        $prefixToRemove = 'Skärmbild '
+    }
+    if($screenshotdir -ne $null) {
+        Get-ChildItem $screenshotdir | Where-Object { $_.LastWriteTime -gt (Get-Date).AddMinutes(-$cutoffMinutes) } | ForEach-Object {
+            $newname = $_.Name.Replace($prefixToRemove,'').Replace(' ','-').ToLower()
+            Write-Host "Copying $($_.FullName) to $rootdir/docs/assets/$newname"
+            Copy-Item $_.FullName "$rootdir/docs/assets/$newname"
+        }
+    }
+    else {
+        Write-Host "Couldn't import any screenshots, check the path [$screenshotdir]"
+    }
+}
 task . proofread, serve, surf
