@@ -3,6 +3,7 @@ param(
     [parameter()]$jekyllversion = '4',
     [parameter()]$servecontainername = 'jekyll-serve',
     [parameter()][string]$postname = '',
+    [parameter()][int]$cutoffMinutes = 5,
     [switch]$wait
 )
 $rootdir = git rev-parse --show-toplevel
@@ -108,4 +109,24 @@ Content here
     code $postfile
 }
 
+task importImages {
+    if($IsLinux -eq $true) {
+        $screenshotdir = Get-Item ~/Pictures
+        $prefixToRemove = 'Screenshot from '
+    }
+    elseif($IsWindows -eq $true) {
+        $screenshotdir = Get-Item $env:USERPROFILE\Pictures\Screenshots
+        $prefixToRemove = 'Screenshot from '
+    }
+    if($screenshotdir -ne $null) {
+        Get-ChildItem $screenshotdir | Where-Object { $_.LastWriteTime -gt (Get-Date).AddMinutes(-$cutoffMinutes) } | ForEach-Object {
+            $newname = $_.Name.Replace($prefixToRemove,'').Replace(' ','-').ToLower()
+            Write-Host "Copying $($_.FullName) to $rootdir/docs/assets/$newname"
+            Copy-Item $_.FullName "$rootdir/docs/assets/$newname"
+        }
+    }
+    else {
+        Write-Host "Couldn't import any screenshots, check the path [$screenshotdir]"
+    }
+}
 task . proofread, serve, surf
