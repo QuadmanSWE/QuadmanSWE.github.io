@@ -114,8 +114,8 @@ task importImages {
         $prefixToRemove = 'Screenshot from '
     }
     elseif($IsWindows -eq $true) {
-        $screenshotdir = Get-Item $env:USERPROFILE\Pictures\Screenshots
-        $prefixToRemove = 'Screenshot from '
+        $screenshotdir = Get-Item ~/OneDrive/Pictures/Screenshots
+        $prefixToRemove = 'Skärmbild '
     }
     if($screenshotdir -ne $null) {
         Get-ChildItem $screenshotdir | Where-Object { $_.LastWriteTime -gt (Get-Date).AddMinutes(-$cutoffMinutes) } | ForEach-Object {
