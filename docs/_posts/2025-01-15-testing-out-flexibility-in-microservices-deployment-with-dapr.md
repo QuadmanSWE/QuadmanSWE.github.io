@@ -48,7 +48,7 @@ Then we went ahead and replaced one of the services with our own implementation 
 
 First we create the new app folder and initialize the dependencies.
 
-``` PowerShell
+``` powershell
 # Creates a new typescript backend app with dapr to send tweets (eventually, the posting to social media is left as an excercise for the reader).
 mkdir tweet-js # our replacement of the tweet server from the Viktor's silly demo
 cd tweet-js
