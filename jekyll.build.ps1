@@ -2,7 +2,8 @@
 param(
     [parameter()]$jekyllversion = '4',
     [parameter()]$servecontainername = 'jekyll-serve',
-    [parameter()][string]$postname = ''
+    [parameter()][string]$postname = '',
+    [switch]$wait
 )
 $rootdir = git rev-parse --show-toplevel
 task proofread {
@@ -10,7 +11,7 @@ task proofread {
     $spellingmisstakes = gci "$rootdir/docs/_posts/*.md" | % {
         gc $_ | Select-String -Pattern $learntospellyoudunce
     }
-    if($spellingmisstakes) {
+    if ($spellingmisstakes) {
         $spellingmisstakes
         throw 'learn to spell you dunce'
     }
@@ -46,15 +47,35 @@ task stop {
 }
 
 task serve stop, remove, {
-    if (test-path .\docs) {
+    if (-not (test-path .\docs)) {
+        throw "You cannot run what does not exist, run invokebuild new first!"
+    }
+    else {
         Push-Location $rootdir/docs
         #serve
         docker run -d --name $servecontainername --volume="$($PWD):/srv/jekyll" --volume="$PWD/vendor/bundle:/usr/local/bundle" --env JEKYLL_ENV=development -p 4000:4000 jekyll/jekyll:$jekyllversion jekyll serve --watch --drafts
 
         Pop-Location
-    }
-    else {
-        throw "You cannot run what does not exist, run invokebuild new first!"
+        $tries = 15;
+        while ($wait -and $tries -gt 0) {
+            Start-Sleep 5
+            try {
+                $result = Invoke-WebRequest -Uri "http://localhost:4000"
+                if ($result.StatusCode -eq 200) {
+                    Write-Host "Server is up"
+                    $tries = 0;
+                    break;
+                }
+                else {
+                    Throw ("Server is not up")
+                }
+            }
+            catch {
+                Write-Host "Server is not up"
+                Start-Sleep 5;
+                $tries--;
+            }            
+        }
     }
 }
 
