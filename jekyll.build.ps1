@@ -18,9 +18,8 @@ task proofread {
     }
 }
 task new {
-    mkdir docs -ea 0 | out-null
+    New-Item -ItemType Directory -ErrorAction SilentlyContinue -Path docs | Out-Null
     push-location $rootdir/docs
-
     #new
     docker run --rm -it --volume="$($PWD):/srv/jekyll" --env JEKYLL_ENV=production jekyll/jekyll:4 jekyll new . --force
 
@@ -28,15 +27,15 @@ task new {
 }
 
 task build {
-    if (test-path .\docs) {
-        Push-Location $rootdir/docs
-        #build
-        docker run --rm -it --volume="$($PWD):/srv/jekyll" --volume="$PWD/vendor/bundle:/usr/local/bundle" --env JEKYLL_ENV=production jekyll/jekyll:$jekyllversion /bin/sh -c "bundle install && jekyll build"
-        Pop-Location
+    if (-not (test-path .\docs)) {
+        throw "You cannot build what does not exist, run invokebuild new first!"
     }
-    else {
-        throw "You cannot build what does not exist, run invoke-build new first!"
-    }
+    Push-Location $rootdir/docs
+    #build
+    docker run --rm -it --volume="$($PWD):/srv/jekyll" --volume="$PWD/vendor/bundle:/usr/local/bundle" --env JEKYLL_ENV=production jekyll/jekyll:$jekyllversion /bin/sh -c "bundle install && jekyll build"
+    Pop-Location
+    
+
 }
 
 task remove stop, {
