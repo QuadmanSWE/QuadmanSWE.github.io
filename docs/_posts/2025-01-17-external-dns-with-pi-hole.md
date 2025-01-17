@@ -127,4 +127,4 @@ One that was in sync, hostnames started to appear in the pihole UI and DNS recor
 
 ## Conclusion
 
-My cluster is now equiped to automatically make sure dns names that I use on my istio gateways get mapped to the istio ingress service. This can be further used if I create new services that I don't want Istio for.
+My cluster is now equipped to automatically make sure dns names that I use on my istio gateways get mapped to the istio ingress service. This can be further used if I create new services that I don't want Istio for, or if I need another ingress gateway entirely.
