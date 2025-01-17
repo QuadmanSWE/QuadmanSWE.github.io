@@ -105,7 +105,7 @@ rules:
     verbs: ["get","watch","list"]
 {% endhighlight %}
 
-### Wildcard CNAMEs are not supported
+### Wildcard DNS records are not supported in pihole
 
 I had previously set up my gateway to pick up traffic from any matching DNS name on my home office network. Pihole doesn't support wildcard DNS records which is made very clear but the next error message I got.
 
