@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+
+  <title>Exploring multi-stage build in docker to learn javascript in the future</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="alternate" type="application/atom+xml" href="/feed.xml">
+</head>
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    <h1>blog.dsoderlund.consulting</h1>
+    </a>
+    <div class="header-links">
+      <a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Exploring multi-stage build in docker to learn javascript in the future</h2>
+  <time datetime="2021-09-07T00:00:00+00:00" class="by-line">07 Sep 2021</time>
+  <h1 id="building-a-simple-react-web-app-on-docker-that-can-be-hosted-anywhere">Building a simple react web app on docker that can be hosted anywhere</h1>
+
+<p>I wanted to learn how to create a plain and simple front end to serve some buttons for rest apis or azure runbooks that we are building.</p>
+
+<p>This way I get a chance to learn something other than powershell and sql and others get invited to show off their skills with typescript and css to make my buttons prettier.</p>
+
+<!--more-->
+
+<p>Disclaimer: the multi-stage docker method in this blogpost is derived from <a href="https://typeofnan.dev/how-to-serve-a-react-app-with-nginx-in-docker/">this excellent blog post by Nick Scialli</a>.</p>
+
+<ul>
+  <li>
+<a href="#building-a-simple-react-web-app-on-docker-that-can-be-hosted-anywhere">Building a simple react web app on docker that can be hosted anywhere</a>
+    <ul>
+      <li><a href="#nodejs">Nodejs</a></li>
+      <li><a href="#yarn">Yarn</a></li>
+      <li><a href="#new-repo">New repo</a></li>
+      <li><a href="#dockerize">Dockerize</a></li>
+      <li><a href="#getting-ready-to-roll-out">Getting ready to roll out</a></li>
+      <li><a href="#example-deployment-on-kubernetes">Example deployment on kubernetes</a></li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="nodejs">Nodejs</h2>
+
+<p>I will install nodejs with <a href="https://chocolatey.org/install">chocolatey</a>, the package manager for windows.</p>
+
+<p>Remember that chocolatey should not run from vscode or powershell ise, but from the normal powershell, as an administrator.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">choco</span><span class="w"> </span><span class="nx">install</span><span class="w"> </span><span class="nx">nodejs</span><span class="w"> </span><span class="nt">--y</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="../assets/react-nginx-chocolatey.png" alt=""></p>
+
+<h2 id="yarn">Yarn</h2>
+
+<p>Then I will use the node package manager to install yarn</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">npm</span><span class="w"> </span><span class="nx">install</span><span class="w"> </span><span class="nx">yarn</span><span class="w"> </span><span class="nt">-g</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="../assets/react-nginx-yarn.png" alt=""></p>
+
+<h2 id="new-repo">New repo</h2>
+
+<p>Let’s just create an empty dir, make it a workspace in vscode and make a repo out of it.</p>
+
+<p>Then once we have made sure vscode can run yarn, lets just init the react application and call it react-nginx.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">new-item</span><span class="w"> </span><span class="nt">-ItemType</span><span class="w"> </span><span class="nx">Directory</span><span class="w"> </span><span class="nt">-Path</span><span class="w"> </span><span class="s2">"C:\repos\multistate-node-nginx"</span><span class="w">
+</span><span class="n">Set-Location</span><span class="w"> </span><span class="s2">"C:\repos\multistate-node-nginx"</span><span class="w">
+</span><span class="n">git</span><span class="w"> </span><span class="nx">init</span><span class="p">;</span><span class="w">
+</span><span class="n">get-command</span><span class="w"> </span><span class="s2">"yarn"</span><span class="w">
+</span><span class="n">yarn</span><span class="w"> </span><span class="nx">create</span><span class="w"> </span><span class="nx">react-app</span><span class="w"> </span><span class="nx">react-nginx</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="../assets/react-nginx-reactapp.png" alt=""></p>
+
+<p>The yarn output suggests we start with “yarn start”, let’s:</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="w">
+</span><span class="n">set-location</span><span class="w"> </span><span class="s2">"react-nginx"</span><span class="w"> 
+</span><span class="n">yarn</span><span class="w"> </span><span class="nx">start</span><span class="w">
+
+</span></code></pre></div></div>
+
+<p><img src="../assets/react-nginx-firststart.png" alt=""></p>
+
+<h2 id="dockerize">Dockerize</h2>
+
+<p>Before we start to develop our application further, let us finish up how we intend to serve our application as a docker container.</p>
+
+<p>That way once it is up and running on docker instead of yarn start, we can ship it to our web provider and know we get the same experience. For hosting I will use Azure web app in the future and in this blog post my little raspberry pi kubernetes cluster.</p>
+
+<p>I use <a href="https://www.docker.com/products/docker-desktop">docker desktop</a> on windows, it is pretty nifty.</p>
+
+<p>I will create a docker ignore file for the modules and that is about it.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="s1">'node_modules'</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">out-file</span><span class="w"> </span><span class="o">.</span><span class="nf">dockerignore</span><span class="w">
+
+</span><span class="n">new-item</span><span class="w"> </span><span class="nx">dockerfile</span><span class="w">
+</span></code></pre></div></div>
+
+<p>This part is copied over from the blog post I referenced up at the top, but I’ve specified which versions I want of node and nginx for build and for run.</p>
+
+<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Multi-stage</span>
+<span class="c"># 1) Node image for building frontend assets</span>
+<span class="c"># 2) nginx stage to serve frontend assets</span>
+
+<span class="c"># Name the node stage "builder"</span>
+<span class="k">FROM</span><span class="w"> </span><span class="s">node:16.8.0-alpine3.11</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="s">builder</span>
+<span class="c"># Set working directory</span>
+<span class="k">WORKDIR</span><span class="s"> /app</span>
+<span class="c"># Copy all files from current directory to working dir in image</span>
+<span class="k">COPY</span><span class="s"> . .</span>
+<span class="c"># install node modules and build assets</span>
+<span class="k">RUN </span>yarn <span class="nb">install</span> <span class="o">&amp;&amp;</span> yarn build
+
+<span class="c"># nginx state for serving content</span>
+<span class="k">FROM</span><span class="s"> nginx:1.21.1-alpine</span>
+<span class="c"># Set working directory to nginx asset directory</span>
+<span class="k">WORKDIR</span><span class="s"> /usr/share/nginx/html</span>
+<span class="c"># Remove default nginx static assets</span>
+<span class="k">RUN </span><span class="nb">rm</span> <span class="nt">-rf</span> ./<span class="k">*</span>
+<span class="c"># Copy static assets from builder stage</span>
+<span class="k">COPY</span><span class="s"> --from=builder /app/build .</span>
+<span class="c"># Containers run nginx with global directives and daemon off</span>
+<span class="k">ENTRYPOINT</span><span class="s"> ["nginx", "-g", "daemon off;"]</span>
+
+</code></pre></div></div>
+
+<p>Now all we need to do is build and test it out locally on docker.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">docker</span><span class="w"> </span><span class="nx">build</span><span class="w"> </span><span class="nt">-t</span><span class="w"> </span><span class="nx">react-nginx</span><span class="w"> </span><span class="o">.</span><span class="w">
+
+</span><span class="n">docker</span><span class="w"> </span><span class="nx">run</span><span class="w"> </span><span class="nt">--name</span><span class="w"> </span><span class="nx">myapp</span><span class="w"> </span><span class="nt">--rm</span><span class="w"> </span><span class="nt">-d</span><span class="w"> </span><span class="nt">-p</span><span class="w"> </span><span class="nx">8080:80</span><span class="w"> </span><span class="s2">"react-nginx"</span><span class="w">
+
+</span><span class="n">start</span><span class="w"> </span><span class="nx">chrome</span><span class="w"> </span><span class="s2">"http://localhost:8080"</span><span class="w">
+</span></code></pre></div></div>
+<p>The nginx service is now serving the content built with node. Sweet.</p>
+
+<p><img src="../assets/react-nginx-secondstart.png" alt=""></p>
+
+<h2 id="getting-ready-to-roll-out">Getting ready to roll out</h2>
+
+<p>At this point if I was going to start to add content, I would make this my first commit.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">git</span><span class="w"> </span><span class="nx">add</span><span class="w"> </span><span class="o">.</span><span class="w">
+</span><span class="n">git</span><span class="w"> </span><span class="nx">commit</span><span class="w"> </span><span class="nt">-m</span><span class="w"> </span><span class="s2">"Added my app"</span><span class="w">
+</span></code></pre></div></div>
+
+<p>Then I would add my gitattributes and extension recommendations.</p>
+
+<p>Then we can finally add some content.</p>
+
+<h2 id="example-deployment-on-kubernetes">Example deployment on kubernetes</h2>
+
+<p>In the future I hope to expand my knowledge of kubernetes enough that I can set up a private container registry. Instead I will opt to publish my container to docker hub and pull it from there with a simple deployment.</p>
+
+<p>Now since my specific cluster is running on ARM and not x64, the images need to be built for that architecture.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#take our build and just tag it nicely</span><span class="w">
+</span><span class="n">docker</span><span class="w"> </span><span class="nx">tag</span><span class="w"> </span><span class="nx">react-nginx</span><span class="w"> </span><span class="nx">dsoderlund/react-nginx:latest</span><span class="w">
+
+</span><span class="c">#up to docker hub we go</span><span class="w">
+</span><span class="n">docker</span><span class="w"> </span><span class="nx">push</span><span class="w"> </span><span class="nx">dsoderlund/react-nginx:latest</span><span class="w">
+
+</span><span class="c">#for my pi cluster, it must be built for ARM</span><span class="w">
+</span><span class="n">docker</span><span class="w"> </span><span class="nx">build</span><span class="w"> </span><span class="nt">-t</span><span class="w"> </span><span class="nx">dsoderlund/react-nginx:arm_latest</span><span class="w"> </span><span class="nt">--platform</span><span class="w"> </span><span class="nx">linux/arm/v8</span><span class="w"> </span><span class="o">.</span><span class="w">
+</span><span class="n">docker</span><span class="w"> </span><span class="nx">push</span><span class="w"> </span><span class="nx">dsoderlund/react-nginx:arm_latest</span><span class="w">
+
+</span></code></pre></div></div>
+
+<p><img src="../assets/react-nginx-docker-push.png" alt=""></p>
+
+<p>Great, now the image can be used in my kubernetes deployment.</p>
+
+<p>I will as a bonus add an example of how to send instructions to kubernetes without yaml files.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#My lazy method of running kubectl apply without a yaml file.</span><span class="w">
+</span><span class="kr">function</span><span class="w"> </span><span class="nf">kapow</span><span class="p">([</span><span class="n">Parameter</span><span class="p">(</span><span class="n">ValueFromPipeline</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">$true</span><span class="p">)][</span><span class="n">string</span><span class="p">]</span><span class="nv">$param</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="nv">$tf</span><span class="o">=</span><span class="n">New-TemporaryFile</span><span class="p">;</span><span class="w"> </span><span class="nv">$param</span><span class="o">|</span><span class="n">out-file</span><span class="w"> </span><span class="nv">$tf</span><span class="p">;</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">kubectl</span><span class="w"> </span><span class="nx">apply</span><span class="w"> </span><span class="nt">--recursive</span><span class="w"> </span><span class="nt">-f</span><span class="w"> </span><span class="nv">$tf</span><span class="p">;</span><span class="w"> </span><span class="n">rm</span><span class="w"> </span><span class="nv">$tf</span><span class="w"> </span><span class="p">}</span><span class="w">
+
+</span><span class="c">#a simple function as a wrapper for kubectl that helps me when writing a lot of kubectl commands.</span><span class="w">
+</span><span class="kr">function</span><span class="w"> </span><span class="n">k</span><span class="p">([</span><span class="n">Parameter</span><span class="p">(</span><span class="n">ValueFromRemainingArguments</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">$true</span><span class="p">)]</span><span class="nv">$params</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">kubectl</span><span class="w"> </span><span class="nv">$params</span><span class="w"> </span><span class="p">}</span><span class="w">
+
+</span><span class="n">k</span><span class="w"> </span><span class="nx">create</span><span class="w"> </span><span class="nx">namespace</span><span class="w"> </span><span class="nx">myapp</span><span class="w">
+</span><span class="n">k</span><span class="w"> </span><span class="nx">config</span><span class="w"> </span><span class="nx">set-context</span><span class="w"> </span><span class="nt">--current</span><span class="w"> </span><span class="nt">--namespace</span><span class="o">=</span><span class="n">myapp</span><span class="w">
+
+</span><span class="c"># deploy a string into kubernetes directly like a savage</span><span class="w">
+</span><span class="n">kapow</span><span class="w"> </span><span class="sh">@"
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp-deployment
+spec:
+  selector:
+    matchLabels:
+      app: myapp
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+      - name: myapp
+        image: dsoderlund/react-nginx:arm_latest
+        ports:
+        - containerPort: 80
+"@</span><span class="w">
+
+</span><span class="c"># expose the deployment with a service</span><span class="w">
+</span><span class="n">k</span><span class="w"> </span><span class="nx">expose</span><span class="w"> </span><span class="nx">deployment</span><span class="w"> </span><span class="nx">myapp-deployment</span><span class="w"> </span><span class="nt">--type</span><span class="o">=</span><span class="n">NodePort</span><span class="w"> </span><span class="nt">--name</span><span class="w"> </span><span class="nx">myservice</span><span class="w">
+
+</span></code></pre></div></div>
+
+<p>Last thing, since I am doing a simple nodeport type service, I need to find what random port it was assigned</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">k</span><span class="w"> </span><span class="nx">describe</span><span class="w"> </span><span class="nx">service</span><span class="w"> </span><span class="nx">myservice</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">select-string</span><span class="w"> </span><span class="nx">nodeport</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="../assets/react-nginx-whatsmyport.png" alt=""></p>
+
+<p>There we go, the application we wrote with node is now running on kubernetes.</p>
+
+<p><img src="../assets/react-nginx-thirdstart.png" alt=""></p>
+
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-sa/4.0">
+    <span>
+        <b>David Söderlund</b>
+    </span>
+    
+    <span>© 2025</span>
+  </a>
+</footer>
+
+  
+    <script type="text/javascript">
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+  ga('create', 'UA-263169605-1', 'auto');
+  ga('send', 'pageview');
+</script>
+  
+</body>
+
+</html>

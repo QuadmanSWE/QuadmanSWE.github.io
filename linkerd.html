@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+
+  <title>Quick guide on installing Linkerd</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="alternate" type="application/atom+xml" href="/feed.xml">
+</head>
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    <h1>blog.dsoderlund.consulting</h1>
+    </a>
+    <div class="header-links">
+      <a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Quick guide on installing Linkerd</h2>
+  <time datetime="2021-09-26T00:00:00+00:00" class="by-line">26 Sep 2021</time>
+  <h1 id="installing-linkerd">Installing Linkerd</h1>
+
+<p>In this post I will show how using windows 10 with chocolatey, we can download the Linkerd cli and use it to install Linkerd in a k3s kubernetes cluster on raspberry pi.</p>
+
+<!--more-->
+
+<p>This post is a continuation on a previous post that guides you through all of setting up such a cluster: <a href="./setting-up-two-raspberry-pi-and-installing-k3s">12 Sep - Quick guide to kubernetes on raspberry pi</a>.</p>
+
+<ul>
+  <li>
+<a href="#installing-linkerd">Installing Linkerd</a>
+    <ul>
+      <li><a href="#requirements">Requirements</a></li>
+      <li><a href="#service-meshes-for-kubernetes">Service meshes for kubernetes</a></li>
+      <li><a href="#linkerd-the-lightweight-service-mesh">Linkerd, the lightweight service mesh</a></li>
+      <li><a href="#installing-the-cli-on-windows-10">Installing the cli on Windows 10</a></li>
+      <li>
+<a href="#example-features-of-linkerd">Example features of Linkerd</a>
+        <ul>
+          <li><a href="#mutual-tls">Mutual TLS</a></li>
+          <li><a href="#debugging-applications-that-consist-of-many-services">Debugging applications that consist of many services</a></li>
+          <li><a href="#drop-the-example-namespace">Drop the example namespace</a></li>
+        </ul>
+      </li>
+      <li><a href="#dns-names-for-kubernetes">DNS names for kubernetes</a></li>
+      <li><a href="#conclusion">Conclusion</a></li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="requirements">Requirements</h2>
+
+<p>A kubernetes cluster to play with, and the kubectl cli tools installed.</p>
+
+<p>I use Windows 10, and chocolatey for installations. I use a list of kubectl aliases for invoking kubectl from PowerShell.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">### Some short hands for common kubectl commands</span><span class="w">
+</span><span class="kr">function</span><span class="w"> </span><span class="n">k</span><span class="p">([</span><span class="n">Parameter</span><span class="p">(</span><span class="n">ValueFromRemainingArguments</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">$true</span><span class="p">)]</span><span class="nv">$params</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">kubectl</span><span class="w"> </span><span class="nv">$params</span><span class="w"> </span><span class="p">}</span><span class="w">
+</span><span class="kr">function</span><span class="w"> </span><span class="nf">kn</span><span class="p">([</span><span class="n">Parameter</span><span class="p">(</span><span class="n">ValueFromRemainingArguments</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">$true</span><span class="p">)]</span><span class="nv">$params</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">kubectl</span><span class="w"> </span><span class="nx">config</span><span class="w"> </span><span class="nx">set-context</span><span class="w"> </span><span class="nt">--current</span><span class="w"> </span><span class="nt">--namespace</span><span class="o">=</span><span class="nv">$params</span><span class="w"> </span><span class="p">}</span><span class="w">
+</span><span class="kr">function</span><span class="w"> </span><span class="nf">ka</span><span class="p">([</span><span class="n">Parameter</span><span class="p">(</span><span class="n">ValueFromRemainingArguments</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">$true</span><span class="p">)]</span><span class="nv">$params</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">kubectl</span><span class="w"> </span><span class="nx">apply</span><span class="w"> </span><span class="nt">--recursive</span><span class="w"> </span><span class="nt">-f</span><span class="w"> </span><span class="nv">$params</span><span class="w"> </span><span class="p">}</span><span class="w">
+</span><span class="c">### and many more!</span><span class="w">
+</span></code></pre></div></div>
+
+<h2 id="service-meshes-for-kubernetes">Service meshes for kubernetes</h2>
+
+<p>Service meshes act as another layer of abstraction on top of kubernetes and what it already provides in terms of infrastructure for our applications. A service mesh orchestrates the intra connection between services that make up an application. This way the application developer can describe <strong>WHAT</strong> a service needs but doesn’t have to write native code in the each service on <strong>HOW</strong> it gets it.</p>
+
+<p>There are a couple of popular choices for service meshes on top of kubernetes, most prominent are <a href="https://istio.io/">Istio</a> and <a href="https://linkerd.io/">Linkerd</a>, the subject of this post.</p>
+
+<h2 id="linkerd-the-lightweight-service-mesh">Linkerd, the lightweight service mesh</h2>
+
+<p>Istio to my knowledge does not run on ARM so to get a service mesh to work on our particular cluster we are going to run with Linkerd.</p>
+
+<p>It being lightweight is perfect when starting to experiment with the tools that they provide.</p>
+
+<h2 id="installing-the-cli-on-windows-10">Installing the cli on Windows 10</h2>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#add Linkerd runtime to my machine</span><span class="w">
+</span><span class="n">choco</span><span class="w"> </span><span class="nx">install</span><span class="w"> </span><span class="nx">Linkerd2</span><span class="w"> </span><span class="nt">--y</span><span class="w">
+
+</span><span class="c">#function to mimic linux reading from stdin in a pipeline</span><span class="w">
+</span><span class="kr">function</span><span class="w"> </span><span class="nf">kapow</span><span class="p">([</span><span class="n">Parameter</span><span class="p">(</span><span class="n">ValueFromPipeline</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">$true</span><span class="p">)][</span><span class="n">string</span><span class="p">]</span><span class="nv">$param</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+  </span><span class="nv">$tf</span><span class="o">=</span><span class="n">New-TemporaryFile</span><span class="p">;</span><span class="w">
+  </span><span class="nv">$param</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">out-file</span><span class="w"> </span><span class="nv">$tf</span><span class="p">;</span><span class="w">
+  </span><span class="o">&amp;</span><span class="w"> </span><span class="n">kubectl</span><span class="w"> </span><span class="nx">apply</span><span class="w"> </span><span class="nt">--recursive</span><span class="w"> </span><span class="nt">-f</span><span class="w"> </span><span class="nv">$tf</span><span class="p">;</span><span class="w">
+  </span><span class="n">rm</span><span class="w"> </span><span class="nv">$tf</span><span class="w"> 
+</span><span class="p">}</span><span class="w">
+</span><span class="c">#once I have the software, install Linkerd runtime to the current cluster</span><span class="w">
+</span><span class="n">linkerd</span><span class="w"> </span><span class="nx">install</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">out-string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">kapow</span><span class="w"> </span><span class="c">#This is equivalent of sh Linkerd install | kubectl apply --recursive -f -</span><span class="w">
+
+</span><span class="c">#checks status of the installation</span><span class="w">
+</span><span class="n">linkerd</span><span class="w"> </span><span class="nx">check</span><span class="w"> </span><span class="nt">--proxy</span><span class="w"> </span><span class="nt">-n</span><span class="w"> </span><span class="nx">Linkerd</span><span class="w">
+
+</span><span class="c">#Add the Linkerd viz dashboard</span><span class="w">
+</span><span class="n">linkerd</span><span class="w"> </span><span class="nx">viz</span><span class="w"> </span><span class="nx">install</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">out-string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">kapow</span><span class="w">
+
+</span></code></pre></div></div>
+
+<p>Look at all those happy check marks / saxophone emojis</p>
+
+<p><img src="../assets/k3s-linkerd-installed.png" alt=""></p>
+
+<h2 id="example-features-of-linkerd">Example features of Linkerd</h2>
+
+<p>The problems I wanted to tackle that got me interested in services meshes in the first place is intra service security and multi service application debugging.</p>
+
+<h3 id="mutual-tls">Mutual TLS</h3>
+
+<p>Linkerd will automatically enforce mTLS between meshed pods, but to get your pods meshed, you have to specify it on your deployment or your namespace.</p>
+
+<p>By always creating a namespace for each instance of an application, I don’t have to think much about it since I will just add the tag for proxy injection to my namespace.</p>
+
+<p>Here is an example deployment into the mesh, some-deployment.yaml is a copy of the deployment I did in an older blogpost: <a href="./react-nginx-docker-multistage">7 sept 2021 -  Exploring multi-stage build in docker to learn javascript in the future</a></p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">k</span><span class="w"> </span><span class="nx">create</span><span class="w"> </span><span class="nx">namespace</span><span class="w"> </span><span class="nx">example</span><span class="w">
+</span><span class="n">k</span><span class="w"> </span><span class="nx">annotate</span><span class="w"> </span><span class="nx">namespace</span><span class="w"> </span><span class="nx">example</span><span class="w"> </span><span class="nx">linkerd.io/inject</span><span class="o">=</span><span class="s2">"enabled"</span><span class="w">
+
+</span><span class="n">kn</span><span class="w"> </span><span class="nx">example</span><span class="w"> </span><span class="c">#set this namespace as the default to interact with to avoid deploying random jank into kube-system</span><span class="w">
+
+</span><span class="n">ka</span><span class="w"> </span><span class="s2">"some-deployment.yaml"</span><span class="w"> </span><span class="c">#a react app in nginx, see previous blog post.</span><span class="w">
+</span><span class="n">k</span><span class="w"> </span><span class="nx">expose</span><span class="w"> </span><span class="nx">deployment</span><span class="w"> </span><span class="nx">myapp-deployment</span><span class="w"> </span><span class="nt">--name</span><span class="w"> </span><span class="nx">myservice</span><span class="w">
+
+</span><span class="c">#check that app is running properly</span><span class="w">
+</span><span class="n">Connect-KubeApplication</span><span class="w"> </span><span class="nt">-localport</span><span class="w"> </span><span class="nx">10987</span><span class="w"> </span><span class="nt">-clusterport</span><span class="w"> </span><span class="nx">80</span><span class="w"> </span><span class="nt">-protocol</span><span class="w"> </span><span class="nx">http</span><span class="w"> </span><span class="nt">-servicename</span><span class="w"> </span><span class="nx">myservice</span><span class="w"> </span><span class="nt">-namespace</span><span class="w"> </span><span class="nx">example</span><span class="w"> 
+
+</span><span class="c">#open the dashboard</span><span class="w">
+</span><span class="n">linkerd</span><span class="w"> </span><span class="nx">viz</span><span class="w"> </span><span class="nx">dashboard</span><span class="w"> </span><span class="c">#similar to my Connect-KubeApplication cmdlet</span><span class="w">
+</span></code></pre></div></div>
+
+<p>Look at that, blesh this mesh.</p>
+
+<p><img src="../assets/k3s-example-meshed.png" alt=""></p>
+
+<h3 id="debugging-applications-that-consist-of-many-services">Debugging applications that consist of many services</h3>
+
+<p>Let’s build on top of the example namespace and add ingress instead of forwarding to our cluster-ip service.</p>
+
+<p>k3s comes bundled with the traefik ingress controller, we can deploy ingress and annotate for Linkerd to mesh the ingress controller.</p>
+
+<p><a href="https://linkerd.io/2.10/tasks/using-ingress/#traefik-1-x">Here is a guide and explanation of what is happening.</a></p>
+
+<p>Adding ingress to the service named myservice in the namespace example.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="w">
+</span><span class="sh">@"
+# apiVersion: networking.k8s.io/v1beta1 # for k8s &lt; v1.19
+# I am running version 1.22.1 so this ought to do fine
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: myapp-ingress
+  namespace: example
+  annotations:
+    ingress.kubernetes.io/custom-request-headers: l5d-dst-override:myservice.example.svc.cluster.local:80
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: myservice.k3s.dsoderlund.consulting
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: myservice
+            port:
+              number: 80
+"@</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">kapow</span><span class="w">
+
+</span><span class="c">#If you have a custom DNS, or an actual domain, you would add the required configuration to route the traffic to the cluster.</span><span class="w">
+</span><span class="c">#You can just add a static route in windows directly in the hosts file.</span><span class="w">
+</span><span class="s2">"192.168.0.78 myservice.k3s.dsoderlund.consulting"</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">out-file</span><span class="w"> </span><span class="nt">-append</span><span class="w"> </span><span class="nx">c:\</span><span class="w">
+
+</span></code></pre></div></div>
+
+<p>We can now surf to our web application with this name.</p>
+
+<p><img src="../assets/ingress-myservice-k3s-dsoderlund-consulting.png" alt=""></p>
+
+<p>To actually get the ingress controller to be meshed we need to add it to the mesh like so:</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#k3s puts traefik in with helm into kube-system namespace. </span><span class="w">
+</span><span class="nv">$tf</span><span class="o">=</span><span class="n">New-TemporaryFile</span><span class="p">;</span><span class="w">
+</span><span class="n">k</span><span class="w"> </span><span class="nx">get</span><span class="w"> </span><span class="nx">deployment</span><span class="w"> </span><span class="nx">traefik</span><span class="w"> </span><span class="nt">-n</span><span class="w"> </span><span class="nx">kube-system</span><span class="w"> </span><span class="nt">--output</span><span class="w"> </span><span class="nx">yaml</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">linkerd</span><span class="w"> </span><span class="nx">inject</span><span class="w"> </span><span class="nt">--ingress</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">Out-File</span><span class="w"> </span><span class="nv">$tf</span><span class="w">
+</span><span class="n">ka</span><span class="w"> </span><span class="nv">$tf</span><span class="w"> 
+</span><span class="n">remove-file</span><span class="w"> </span><span class="nv">$tf</span><span class="p">;</span><span class="w">
+</span></code></pre></div></div>
+
+<p>My ingress controller (traefik) will be meshed too, allowing linkerd to control the behaviour of the ingress and to inject prometheus for logging.</p>
+
+<p>As we can see here the intracluster network traffic gets logged and we can look start to use it to diagnose our applications.</p>
+
+<p><img src="../assets/ingress-controller-traefik-meshed.png" alt=""></p>
+
+<h3 id="drop-the-example-namespace">Drop the example namespace</h3>
+
+<p>To remove this deployment you can just drop that namespace.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">k</span><span class="w"> </span><span class="nx">delete</span><span class="w"> </span><span class="nx">namespace</span><span class="w"> </span><span class="nx">example</span><span class="w">
+</span></code></pre></div></div>
+
+<h2 id="dns-names-for-kubernetes">DNS names for kubernetes</h2>
+
+<p>In our ingress example I was using the domain k3s.dsoderlund.consulting</p>
+
+<p>In our household we are using a pi-hole which I can use for DNS internally like so:</p>
+
+<p><img src="../assets/Pi-hole-CNAME-k3s.png" alt=""></p>
+
+<p>But to get the behaviour I typcally want I will add the entire subdomain directly in dnsmasq on the pi-hole:</p>
+
+<p><img src="../assets/Pi-hole-dns-k3s.png" alt=""></p>
+
+<p>If I were to expose the cluster to the Internet I would just configure global DNS through Google, where I buy my domain.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>Service meshes provide a wide variaty of features that help you homogenize your applications and simplify devops.</p>
+
+<p>They are not a higher goal in their own right, don’t treat them as a hammer in search for a nail.</p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-sa/4.0">
+    <span>
+        <b>David Söderlund</b>
+    </span>
+    
+    <span>© 2025</span>
+  </a>
+</footer>
+
+  
+    <script type="text/javascript">
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+  ga('create', 'UA-263169605-1', 'auto');
+  ga('send', 'pageview');
+</script>
+  
+</body>
+
+</html>
