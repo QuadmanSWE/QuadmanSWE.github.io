@@ -104,7 +104,7 @@ Me and a colleague built a solution to model, store, and in real time analyze st
 
 
 ## Sandvik IT Services
-### Implementation of Forefront Identity Manager 
+### Data Warehouse development and administration
 
 `2011-2012`
 
@@ -112,7 +112,7 @@ I have built a Data Warehouse together with a complete ETL process for internal 
 
 
 ## Sandvik IT Services
-### Data Warehouse development and administration
+### Implementation of Forefront Identity Manager 
 
 `2011-2012`
 
@@ -157,4 +157,4 @@ Available on request.
 
 <!-- ### Footer
 
-Last updated: June 2024 -->
+Last updated: January 2025 -->
