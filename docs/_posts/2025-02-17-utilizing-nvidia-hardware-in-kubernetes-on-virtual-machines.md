@@ -12,7 +12,11 @@ With the advent of large language models, I thought it might be fun to try and g
 
 After having gotten an LLM to run locally on Windows 11 and then querying it with open webui, I would like to replicate the setup on kubernetes.
 
-I started reading and came up with a rough idea of the steps involved and what I needed to do to execute them.
+I started reading wikis, blogs, watched youtube videos, and came up with a rough idea of the steps involved and what I needed to do to execute them.
+
+For reference my kubernetes cluster consists of a handful of Virtual Machines running Talos Linux, all running on top of one physical machine running Proxmox.
+
+In broad strokes I would nee to 
 
 1. Get the GPU to run in a VM
    a. Configure the hypervisor to be able to passthrough the GPU
@@ -38,7 +42,9 @@ What I dubbed my SQL Genie is now explaining columnstore indexes in SQL Server t
 
 ## Step by step
 
-### Ollama locally
+### Step 1 - Ollama locally
+
+# TODO: add pictures and code from windows 11 here
 
 First thing is first, how do we run ollama locally?
 
@@ -46,7 +52,9 @@ Make sure you have working drivers for your graphics card, then install ollama f
 Set up the model you want to serve. You could get this to run as a service on windows with nssm.
 I chose to interact with it with open webui because it is available on docker hub and that translates nicely into the kubernetes setup.
 
-### PCIe passthrough on proxmox
+Ok that was easy.
+
+### Step 2 - Get a graphics card available to workloads running on kubernetes.
 
 Proxmox is the hypervisor that I dual boot into besides Windows 11 on my system.
 
@@ -58,15 +66,17 @@ This comes with a bunch of challanges such as making sure the host operating sys
 
 Let's skip over all of the painstaking device configuration and near death experience trying to restore functionality to Windows 11 again after tinkering with iommu and blacklisting devices and disconnecting cables.
 
+#### Verifying IOMMU groups
+
 After getting everything restored and then configured in the right order I can verify that the device is availble and in its own iommu group.
 
 ``` bash
-
+# uses lspci to display every pci bus and their corresponding devices
 cat /proc/cmdline; for d in /sys/kernel/iommu_groups/*/devices/*; do n=${d#*/iommu_groups/*}; n=${n%%/*}; printf 'IOMMU groups %s ' "$n"; lspci -nns "${d##*/}"; done
 
 ```
 
-As we can see the nvidia device is in iommu group 12, and has deviceid 01:00
+As we can see the nvidia device is in IOMMU group `12`, and has deviceid `01:00`
 
 {% highlight text mark_lines="12 13" %}
 IOMMU groups 0 00:01.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Device [1022:14da]
@@ -112,22 +122,159 @@ IOMMU groups 8 00:08.1 PCI bridge [0604]: Advanced Micro Devices, Inc. [AMD] Dev
 IOMMU groups 9 00:08.3 PCI bridge [0604]: Advanced Micro Devices, Inc. [AMD] Device [1022:14dd]
 {% endhighlight %}
 
-### Trying it out with Ubuntu
+#### Trying it out with Ubuntu
 
 I created a new VM from scratch with a ubuntu live server image.
 
 On the hardware page I can now safely attach the pci device for my graphics card (though it can of course only be used by one running VM at a time).
 
-After the installations I rebooted and installed docker and the appropriate drivers following the examples from nvidia together with their container toolkit. [Full guide on their site](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
+![](../assets/2025-02-17-14-57-27-pci-device-1.png)
+
+![](../assets/2025-02-17-14-58-00-pci-device-2.png)
+
+After the guided installation of Ubuntu I rebooted and installed docker and the appropriate drivers following the examples from nvidia together with their container toolkit. [Full guide on their site](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
 
 With that I could run a container on the VM which could use the gpu passed through from proxmox.
 
 ![](../assets/2025-02-07-17-16-12-nvidia-smi-in-ubuntu-docker.png)
 
-### Getting everything set up for talos
+#### Getting everything set up for talos
 
 Talos is the linux distro on top of which I choose to run kubernetes.
 
 [Here is the talos image I configured for the gpu node](https://factory.talos.dev/?arch=amd64&board=undefined&cmdline-set=true&extensions=-&extensions=siderolabs%2Fbtrfs&extensions=siderolabs%2Fiscsi-tools&extensions=siderolabs%2Fnvidia-container-toolkit-production&extensions=siderolabs%2Fnvidia-open-gpu-kernel-modules-production&extensions=siderolabs%2Fqemu-guest-agent&platform=metal&secureboot=undefined&target=metal&version=1.9.3)
 
 I added extensions according to the [guide on the talos site](https://www.talos.dev/v1.9/talos-guides/configuration/nvidia-gpu-proprietary/).
+
+I configured the node using an existing worker configuration to join the cluster, and I added some patches to get modules, node labels, and the correct talos image to run.
+
+``` PowerShell
+PS /home/dsoderlund/repos/talos> talosctl apply-config --nodes mgmt-gpu-1 --file _out/worker.yaml --config-patch @node-patches/gpu/labels.yaml --config-patch @node-patches/gpu/nvidia.yaml --config-patch @node-patches/gpu/version.yaml
+```
+
+
+``` yaml
+# labels.yaml
+machine:
+  nodeLabels:
+    has.nvidia.gpu: "true"
+```
+
+``` yaml
+# nvidia.yaml
+machine:
+  kernel:
+    modules:
+      - name: nvidia
+      - name: nvidia_uvm
+      - name: nvidia_drm
+      - name: nvidia_modeset
+  sysctls:
+    net.core.bpf_jit_harden: 1
+```
+
+``` yaml
+# version.yaml
+machine:
+  install:
+    image: factory.talos.dev/installer/99453fb462d1cc3043a71d3fb47b66e8a48b8a22f01c0af5df80a570f6d96d0f:v1.9.3
+```
+
+Lastly I made sure the node in kubernetes got the correct role and taints to avoid running any other workload on it than that specifically requireing the nvidia runtime.
+
+
+``` PowerShell
+PS /home/dsoderlund/repos/talos> $mgmtVMs | ft                               
+
+Id  Name        MACAddress        Role          Cluster IP           Hostname
+--  ----        ----------        ----          ------- --           --------
+101 mgmt-ctrl-1 BC:24:11:0A:35:4B control-plane mgmt    192.168.0.11 mgmt-ctrl-1.pm.dsoderlund.consulting
+102 mgmt-ctrl-2 BC:24:11:95:98:4B control-plane mgmt    192.168.0.12 mgmt-ctrl-2.pm.dsoderlund.consulting
+103 mgmt-ctrl-3 BC:24:11:C8:02:39 control-plane mgmt    192.168.0.13 mgmt-ctrl-3.pm.dsoderlund.consulting
+104 mgmt-work-1 BC:24:11:C8:08:9C worker        mgmt    192.168.0.21 mgmt-work-1.pm.dsoderlund.consulting
+105 mgmt-work-2 BC:24:11:77:29:7F worker        mgmt    192.168.0.22 mgmt-work-2.pm.dsoderlund.consulting
+106 mgmt-work-3 BC:24:11:D2:E7:3B worker        mgmt    192.168.0.23 mgmt-work-3.pm.dsoderlund.consulting
+107 mgmt-work-4 BC:24:11:37:AC:93 worker        mgmt    192.168.0.24 mgmt-work-4.pm.dsoderlund.consulting
+109 mgmt-gpu-1  BC:24:11:C4:B3:0E gpu           mgmt    192.168.0.25 mgmt-gpu-1.pm.dsoderlund.consulting
+
+
+# Set worker and gpu node roles
+PS /home/dsoderlund/repos/talos> $mgmtVMs | ? Role -in 'worker', 'gpu' | % {
+    $n = $_.Name
+    $r = $_.Role
+    kubectl label node $n node-role.kubernetes.io/$r=''
+}
+
+# Taint gpu nodes
+PS /home/dsoderlund/repos/talos> $mgmtVMs | ? Role -eq 'gpu' | % {
+    $n = $_.Name
+    kubectl taint node $n nvidia.com/gpu:NoSchedule
+}
+
+``` 
+
+Checking that the role got set can be done with `kubectl get nodes`. An interesting thing I learned was that nodes are not allowed to set any labels they want on themselves via kubelet (to avoid for exampel changing their role to control-plane). This is why some labels for my nodes are set with the talos patch and some through a script.
+
+![](../assets/2025-02-17-16-33-53-kubectl-get-nodes.png)
+
+#### Kubernetes configuration
+
+I configured the resources needed according to the talos guide I linked to previously into a new argocd application using kustomize and helm.
+
+The nodeselector parameter for the helm chart makes it so that the daemonset only runs on the nodes with gpus, as configured in the previous part. The plugin needs to run on all nodes that has gpus, so that other pods on the same node can be granted access to the gpu.
+
+``` yaml
+# kustomization.yaml
+---
+kind: Kustomization
+resources:
+  - runtimeclass.yaml
+helmCharts:
+  - name: nvidia-device-plugin
+    releaseName: nvidia-device-plugin
+    namespace: kube-system
+    repo: https://nvidia.github.io/k8s-device-plugin
+    version: 0.13.0
+    includeCRDs: true
+    valuesInline:
+      runtimeClassName: nvidia
+      nodeSelector:
+        has.nvidia.gpu: "true"
+``` 
+The tolerations in the runtime class matches the tains set up in the previous part. Tolerations in runtime classes will be merged with any other tolerations on pod specs. This makes it so that they can encapsulate the effort of expressing to kubernetes that this particular workload can tolerate to run even if the node is tainted which is exactly what we want. The nodeSelector matches up with how how labeled the node.
+``` yaml
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: nvidia
+handler: nvidia
+scheduling:
+  nodeSelector:
+    has.nvidia.gpu: "true"
+  tolerations:
+  - effect: NoSchedule
+    key: nvidia.com/gpu
+    operator: Exists
+apiVersion: kustomize.config.k8s.io/v1beta1
+``` 
+
+Once synced this creates the nvidia-device-plugin daemonset and the nvidia runtime class. Notice how the daemonset only has the one pod since only one node matches the `has.nvidia.gpu=true` selector.
+
+![](../assets/2025-02-17-15-50-16-nvidia-argocd-app.png)
+
+This kubernetes cluster is now ready to be tested like our Ubuntu VM before it.
+
+``` bash
+kubectl run -n dev  \
+    nvidia-version-check --restart=Never \
+    --image nvcr.io/nvidia/cuda:12.4.0-base-ubuntu22.04 \
+    --overrides '{"spec": {"runtimeClassName": "nvidia"}}' \
+    nvidia-smi
+```
+
+![](../assets/2025-02-09-00-10-39-nvidia-smi-in-kubernetes.png)
+
+Wonderful, that was not as easy as docker but just as satisfying.
+
+### Step 3 - running ollama and open webui on kubernetes
+
