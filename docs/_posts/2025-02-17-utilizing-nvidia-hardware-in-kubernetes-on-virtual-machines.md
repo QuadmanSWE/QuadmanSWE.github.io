@@ -8,6 +8,22 @@ With the advent of large language models, I thought it might be fun to try and g
 
 <!--more-->
 
+- [The plan](#the-plan)
+- [The end results](#the-end-results)
+- [Step by step](#step-by-step)
+  - [Step 1 - Ollama locally](#step-1---ollama-locally)
+  - [Step 2 - Get a graphics card available to workloads running on kubernetes.](#step-2---get-a-graphics-card-available-to-workloads-running-on-kubernetes)
+    - [Verifying IOMMU groups](#verifying-iommu-groups)
+    - [Trying it out with Ubuntu](#trying-it-out-with-ubuntu)
+    - [Getting everything set up for talos](#getting-everything-set-up-for-talos)
+    - [Kubernetes configuration](#kubernetes-configuration)
+  - [Step 3 - running ollama and open webui on kubernetes](#step-3---running-ollama-and-open-webui-on-kubernetes)
+    - [backend (Ollama)](#backend-ollama)
+    - [Frontend (open webui)](#frontend-open-webui)
+    - [Final deployment in argocd](#final-deployment-in-argocd)
+
+
+
 ## The plan
 
 After having gotten an LLM to run locally on Windows 11 and then querying it with open webui, I would like to replicate the setup on kubernetes.
@@ -41,6 +57,8 @@ What I dubbed my SQL Genie is now explaining columnstore indexes in SQL Server t
 ![](../assets/2025-02-17-15-34-51-chatting-with-sqlgenie.png)
 
 ## Step by step
+
+Ok so how did this actually happen.
 
 ### Step 1 - Ollama locally
 
@@ -284,9 +302,9 @@ I also want to persist the LLMs to avoid downloading from hugging face or other 
 
 I named my service "SQL Genie" after being inspired by my friend [Eugene(@sqlgene)](https://bsky.app/profile/sqlgene.com) to actually learn all this stuff. I imagine it being a magical oracle that can help me stay updated on SQL Server.
 
+#### backend (Ollama)
 
 {% highlight yaml mark_lines="23" %}
-# sqlgenie-dp
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -339,7 +357,6 @@ spec:
 For storage I use a custom CSI that allows talos to use my synology NAS to provide block level storage devices (LUN) that it can mount as drives rather than a remote file system.
 
 {% highlight yaml mark_lines="7" %}
-# sqlgenie-backend-pvc.yaml
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -370,6 +387,8 @@ spec:
     port: 11434
     targetPort: 11434
 {% endhighlight %}
+
+#### Frontend (open webui)
 
 With that up and running, time to add open webui as the front end. Similar image reupload as with ollama to give docker hub a break.
 
@@ -463,9 +482,6 @@ Istio will handle tls termination at the gateway level, if I were to run a servi
 I am reusing a certificate that matches *.mgmt.dsoderlund.consulting which is the hostname that maps to the IP of the istio ingress gateway available on my office network. Check out previous posts on [how I got DNS to work in the office](../2025-01-17-external-dns-with-pi-hole), and [how the istio gateway certificates are generated](../the-joy-of-kubernetes-2-let-us-encrypt).
 
 {% highlight yaml %}
-# sqlgenie-ingress.yaml
----
-## gateway
 apiVersion: networking.istio.io/v1beta1
 kind: Gateway
 metadata:
@@ -483,8 +499,7 @@ spec:
       tls:
         mode: SIMPLE
         credentialName: mgmt-tls
----
-## virtual service
+
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
@@ -509,7 +524,12 @@ spec:
           number: 80
 {% endhighlight %}
 
+#### Final deployment in argocd
+
 There we go, all the resources are stored for argocd to pick them up in a new application.
 
 ![](../assets/2025-02-17-17-05-38-sqlgenie-argocd-app.png)
 
+And now we can check out [The end results](#the-end-results)
+
+Note that the final product was increadibly slow for me, I know too little about running this type of setup to even begin tuning or troubleshooting. Your milage may vary :)
