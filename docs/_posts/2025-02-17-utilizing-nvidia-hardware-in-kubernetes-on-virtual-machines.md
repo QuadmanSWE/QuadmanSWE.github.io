@@ -44,7 +44,7 @@ What I dubbed my SQL Genie is now explaining columnstore indexes in SQL Server t
 
 ### Step 1 - Ollama locally
 
-# TODO: add pictures and code from windows 11 here
+**TODO: add pictures and code from windows 11 here**
 
 First thing is first, how do we run ollama locally?
 
@@ -277,4 +277,239 @@ kubectl run -n dev  \
 Wonderful, that was not as easy as docker but just as satisfying.
 
 ### Step 3 - running ollama and open webui on kubernetes
+
+The idea here is to run the same ollama software as before but in a container, with the nvidia runtime such that it gets access to the gpu provided by the nvidia device plugin.
+
+I also want to persist the LLMs to avoid downloading from hugging face or other places over and over if and when the pod gets restarted. I retagged the ollama runtime container image and uploaded to a private oci repo for a similar reason.
+
+I named my service "SQL Genie" after being inspired by my friend [Eugene(@sqlgene)](https://bsky.app/profile/sqlgene.com) to actually learn all this stuff. I imagine it being a magical oracle that can help me stay updated on SQL Server.
+
+
+{% highlight yaml mark_lines="23" %}
+# sqlgenie-dp
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name:  sqlgenie
+  labels:
+    name: sqlgenie
+    app: sqlgenie
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      name: sqlgenie
+  template:
+    metadata:
+      labels:
+        name: sqlgenie
+    spec:
+      containers:
+      - name:  sqlgenie
+        image: images.mgmt.dsoderlund.consulting/ollama:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 11434
+          protocol: TCP
+        resources:
+          requests:
+            cpu: "2000m"
+            memory: "16Gi"
+          limits:
+            cpu: "3000m"
+            memory: "60Gi"
+        env:
+          - name: OLLAMA_MODELS
+            value: "/model"
+        volumeMounts:
+        - mountPath: /model
+          name: model
+          readOnly: false
+
+      volumes:
+        - name: model
+          persistentVolumeClaim:
+            claimName: model-llama
+      runtimeClassName:  nvidia
+{% endhighlight %}
+
+For storage I use a custom CSI that allows talos to use my synology NAS to provide block level storage devices (LUN) that it can mount as drives rather than a remote file system.
+
+{% highlight yaml mark_lines="7" %}
+# sqlgenie-backend-pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-llama
+spec:
+  storageClassName: lun
+  resources:
+    requests:
+      storage: 64Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+{% endhighlight %}
+
+Of course I want sqlgenie to be available in the cluster so that open webui can reach it, so I set up a service for discovery.
+
+{% highlight yaml %}
+apiVersion: v1
+kind: Service
+metadata:
+  name: sqlgenie
+spec:
+  selector:
+    name: sqlgenie
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 11434
+    targetPort: 11434
+{% endhighlight %}
+
+With that up and running, time to add open webui as the front end. Similar image reupload as with ollama to give docker hub a break.
+
+Note the ollama base url matching the service name and port from before.
+
+{% highlight yaml mark_lines="22 29 30" %}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name:  sqlgenie-frontend
+  labels:
+    name: sqlgenie-frontend
+    app: sqlgenie
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      name: sqlgenie-frontend
+  template:
+    metadata:
+      labels:
+        name: sqlgenie-frontend
+    spec:
+      containers:
+      - name: sqlgenie-frontend
+        image: images.mgmt.dsoderlund.consulting/open-webui:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        env:
+          - name: OLLAMA_BASE_URL
+            value: "http://sqlgenie:11434"
+        volumeMounts:
+        - name: webui-data
+          mountPath: /app/backend/data
+        resources:
+          requests:
+            cpu: "1000m"
+            memory: "2Gi"
+          limits:
+            cpu: "1000m"
+            memory: "2Gi"
+      volumes:
+      - name: webui-data
+        persistentVolumeClaim:
+          claimName: webui-data
+{% endhighlight %}
+
+The webui will store things like basic credentials and chat history per user. I added similar storage to before for that.
+
+{% highlight yaml %}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: webui-data
+spec:
+  storageClassName: lun
+  resources:
+    requests:
+      storage: 8Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+{% endhighlight %}
+
+In order to access the site it needs to be made available for service discovery. I want to reach it on port 80.
+
+{% highlight yaml %}
+apiVersion: v1
+kind: Service
+metadata:
+  name: sqlgenie-frontend
+spec:
+  selector:
+    name: sqlgenie-frontend
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+{% endhighlight %}
+
+And lastly I added some configuration analogous to ingress, with istio being what my cluster runs for things like auth middleware.
+
+Istio will handle tls termination at the gateway level, if I were to run a service mesh it would do mTLS from there to the pod, but I have no need.
+
+I am reusing a certificate that matches *.mgmt.dsoderlund.consulting which is the hostname that maps to the IP of the istio ingress gateway available on my office network. Check out previous posts on [how I got DNS to work in the office](../2025-01-17-external-dns-with-pi-hole), and [how the istio gateway certificates are generated](../the-joy-of-kubernetes-2-let-us-encrypt).
+
+{% highlight yaml %}
+# sqlgenie-ingress.yaml
+---
+## gateway
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: sqlgenie-gateway
+spec:
+  selector:
+    app: istio-gateway
+  servers:
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      hosts:
+        - "sqlgenie.mgmt.dsoderlund.consulting"
+      tls:
+        mode: SIMPLE
+        credentialName: mgmt-tls
+---
+## virtual service
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: sqlgenie-vs
+  annotations:
+    link.argocd.argoproj.io/external-link: https://sqlgenie.mgmt.dsoderlund.consulting
+spec:
+  hosts:
+  - sqlgenie.mgmt.dsoderlund.consulting
+  gateways:
+  - sqlgenie-gateway
+  http:
+  - match:
+    - uri:
+        prefix: "/"
+    - uri:
+        exact: /
+    route:
+    - destination:
+        host: sqlgenie-frontend.dev.svc.cluster.local
+        port:
+          number: 80
+{% endhighlight %}
+
+There we go, all the resources are stored for argocd to pick them up in a new application.
+
+![](../assets/2025-02-17-17-05-38-sqlgenie-argocd-app.png)
 
