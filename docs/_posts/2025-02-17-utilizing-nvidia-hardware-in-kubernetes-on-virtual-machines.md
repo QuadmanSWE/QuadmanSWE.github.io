@@ -11,7 +11,7 @@ With the advent of large language models, I thought it might be fun to try and g
 - [The plan](#the-plan)
 - [The end results](#the-end-results)
 - [Step by step](#step-by-step)
-  - [Step 1 - Ollama locally](#step-1---ollama-locally)
+  - [Step 1 - Ollama locally on Windows](#step-1---ollama-locally-on-windows)
   - [Step 2 - Get a graphics card available to workloads running on kubernetes.](#step-2---get-a-graphics-card-available-to-workloads-running-on-kubernetes)
     - [Verifying IOMMU groups](#verifying-iommu-groups)
     - [Trying it out with Ubuntu](#trying-it-out-with-ubuntu)
@@ -54,23 +54,47 @@ Look at that, all in a couple of weeks hard trial and error.
 
 What I dubbed my SQL Genie is now explaining columnstore indexes in SQL Server to me.
 
-![](../assets/2025-02-17-15-34-51-chatting-with-sqlgenie.png)
+![chatting with sqlgenie in browser](../assets/2025-02-17-15-34-51-chatting-with-sqlgenie.png)
 
 ## Step by step
 
 Ok so how did this actually happen.
 
-### Step 1 - Ollama locally
-
-**TODO: add pictures and code from windows 11 here**
+### Step 1 - Ollama locally on Windows
 
 First thing is first, how do we run ollama locally?
 
-Make sure you have working drivers for your graphics card, then install ollama from their site.
-Set up the model you want to serve. You could get this to run as a service on windows with nssm.
+Make sure you have working drivers for your graphics card, then install ollama from [their site](https://ollama.com/download/windows).
+
+I got it running fine using [scoop](https://scoop.sh/).
+``` powershell
+scoop install ollama
+```
+
+Start ollama. You could get it to run as a service on windows with [nssm](https://nssm.cc).
+``` powershell
+ollama serve
+```
+
+Set up the model you want to try out with ollama run. This will start a prompt to it and it will also make the model available for ollama.
+If you want to make a model available without interacting directly through the shell use `ollama pull`
+
+``` powershell
+ollama pull deepseek-r1:14b
+```
+
+![ollama interaction from powershell prompt](../assets/2025-03-22-125730-ollama-windows.png)
+
+
 I chose to interact with it with open webui because it is available on docker hub and that translates nicely into the kubernetes setup.
 
+``` powershell
+docker run -d -p 3000:8080 --add-host=host.docker.internal:host-gateway -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:main
+```
+
 Ok that was easy.
+
+![openwebui in firefox showing ollama interaction](../assets/2025-03-22-130423-openwebui-windows.png)
 
 ### Step 2 - Get a graphics card available to workloads running on kubernetes.
 
@@ -146,15 +170,15 @@ I created a new VM from scratch with a ubuntu live server image.
 
 On the hardware page I can now safely attach the pci device for my graphics card (though it can of course only be used by one running VM at a time).
 
-![](../assets/2025-02-17-14-57-27-pci-device-1.png)
+![proxmox gui finding pci device in a menu](../assets/2025-02-17-14-57-27-pci-device-1.png)
 
-![](../assets/2025-02-17-14-58-00-pci-device-2.png)
+![proxmox gui adding pci device to a vm](../assets/2025-02-17-14-58-00-pci-device-2.png)
 
 After the guided installation of Ubuntu I rebooted and installed docker and the appropriate drivers following the examples from nvidia together with their container toolkit. [Full guide on their site](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
 
 With that I could run a container on the VM which could use the gpu passed through from proxmox.
 
-![](../assets/2025-02-07-17-16-12-nvidia-smi-in-ubuntu-docker.png)
+![nvidia smi docker container output from an ubuntu vm shell](../assets/2025-02-07-17-16-12-nvidia-smi-in-ubuntu-docker.png)
 
 #### Getting everything set up for talos
 
@@ -166,7 +190,7 @@ I added extensions according to the [guide on the talos site](https://www.talos.
 
 I configured the node using an existing worker configuration to join the cluster, and I added some patches to get modules, node labels, and the correct talos image to run.
 
-``` PowerShell
+``` powershell
 PS /home/dsoderlund/repos/talos> talosctl apply-config --nodes mgmt-gpu-1 --file _out/worker.yaml --config-patch @node-patches/gpu/labels.yaml --config-patch @node-patches/gpu/nvidia.yaml --config-patch @node-patches/gpu/version.yaml
 ```
 
@@ -201,7 +225,7 @@ machine:
 Lastly I made sure the node in kubernetes got the correct role and taints to avoid running any other workload on it than that specifically requireing the nvidia runtime.
 
 
-``` PowerShell
+``` powershell
 PS /home/dsoderlund/repos/talos> $mgmtVMs | ft                               
 
 Id  Name        MACAddress        Role          Cluster IP           Hostname
@@ -233,7 +257,7 @@ PS /home/dsoderlund/repos/talos> $mgmtVMs | ? Role -eq 'gpu' | % {
 
 Checking that the role got set can be done with `kubectl get nodes`. An interesting thing I learned was that nodes are not allowed to set any labels they want on themselves via kubelet (to avoid for exampel changing their role to control-plane). This is why some labels for my nodes are set with the talos patch and some through a script.
 
-![](../assets/2025-02-17-16-33-53-kubectl-get-nodes.png)
+![output of kubectl get nodes](../assets/2025-02-17-16-33-53-kubectl-get-nodes.png)
 
 #### Kubernetes configuration
 
@@ -278,7 +302,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 
 Once synced this creates the nvidia-device-plugin daemonset and the nvidia runtime class. Notice how the daemonset only has the one pod since only one node matches the `has.nvidia.gpu=true` selector.
 
-![](../assets/2025-02-17-15-50-16-nvidia-argocd-app.png)
+![the nvidia app through argocd gui](../assets/2025-02-17-15-50-16-nvidia-argocd-app.png)
 
 This kubernetes cluster is now ready to be tested like our Ubuntu VM before it.
 
@@ -290,7 +314,7 @@ kubectl run -n dev  \
     nvidia-smi
 ```
 
-![](../assets/2025-02-09-00-10-39-nvidia-smi-in-kubernetes.png)
+![nvidia smi output from a kubernetes pod](../assets/2025-02-09-00-10-39-nvidia-smi-in-kubernetes.png)
 
 Wonderful, that was not as easy as docker but just as satisfying.
 
@@ -304,7 +328,7 @@ I named my service "SQL Genie" after being inspired by my friend [Eugene(@sqlgen
 
 #### backend (Ollama)
 
-{% highlight yaml mark_lines="23" %}
+{% highlight yaml mark_lines="21 22" %}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -356,7 +380,7 @@ spec:
 
 For storage I use a custom CSI that allows talos to use my synology NAS to provide block level storage devices (LUN) that it can mount as drives rather than a remote file system.
 
-{% highlight yaml mark_lines="7" %}
+{% highlight yaml mark_lines="6" %}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -528,7 +552,7 @@ spec:
 
 There we go, all the resources are stored for argocd to pick them up in a new application.
 
-![](../assets/2025-02-17-17-05-38-sqlgenie-argocd-app.png)
+![sqlgenie app from the argocd ui](../assets/2025-02-17-17-05-38-sqlgenie-argocd-app.png)
 
 And now we can check out [The end results](#the-end-results)
 

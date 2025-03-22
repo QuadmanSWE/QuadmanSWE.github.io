@@ -128,4 +128,5 @@ task importImages {
         Write-Host "Couldn't import any screenshots, check the path [$screenshotdir]"
     }
 }
+task copyImages importImages
 task . proofread, serve, surf
