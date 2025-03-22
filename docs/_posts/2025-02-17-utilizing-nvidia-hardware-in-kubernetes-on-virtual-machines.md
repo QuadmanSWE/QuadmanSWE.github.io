@@ -104,7 +104,7 @@ There are a bunch of different guides and troubleshooting guides which I used. [
 
 In essence the goal is to make sure that the gpu hardware can be mounted and utilized as if it was native to the virtualized operating system.
 
-This comes with a bunch of challanges such as making sure the host operating system (proxmox) doesn't use the graphics card in any way itself.
+This comes with a bunch of challenges such as making sure the host operating system (proxmox) doesn't use the graphics card in any way itself.
 
 Let's skip over all of the painstaking device configuration and near death experience trying to restore functionality to Windows 11 again after tinkering with iommu and blacklisting devices and disconnecting cables.
 
