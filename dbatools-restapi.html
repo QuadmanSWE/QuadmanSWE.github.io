@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+
+  <title>Running dbatools as a REST API</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="alternate" type="application/atom+xml" href="/feed.xml">
+</head>
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    <h1>blog.dsoderlund.consulting</h1>
+    </a>
+    <div class="header-links">
+      <a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Running dbatools as a REST API</h2>
+  <time datetime="2021-08-01T00:00:00+00:00" class="by-line">01 Aug 2021</time>
+  <h1 id="restful-api-that-leverages-dbatools-to-manage-sql-server-instances-without-your-application-having-powershell-or-dbatools">RESTful API that leverages dbatools to manage sql server instances without your application having PowerShell or dbatools</h1>
+
+<ul>
+  <li>
+<a href="#restful-api-that-leverages-dbatools-to-manage-sql-server-instances-without-your-application-having-powershell-or-dbatools">RESTful API that leverages dbatools to manage sql server instances without your application having PowerShell or dbatools</a>
+    <ul>
+      <li><a href="#too-long-didnt-read">Too long; didn’t read:</a></li>
+      <li><a href="#background---a-testing-framework-with-some-infrastructure-issues">Background - a testing framework with some infrastructure issues</a></li>
+      <li><a href="#decoupling-the-database-management-from-the-business-logic-of-the-testing-itself">Decoupling the database management from the business logic of the testing itself</a></li>
+      <li><a href="#getting-the-image-and-setting-up-a-demo-environment">Getting the image and setting up a demo environment</a></li>
+      <li><a href="#things-you-can-do-with-the-example-implementation">Things you can do with the example implementation</a></li>
+      <li><a href="#how-does-it-work">How does it work?</a></li>
+      <li>
+<a href="#further-improvements">Further improvements</a>
+        <ul>
+          <li><a href="#extending-functionality">Extending functionality</a></li>
+          <li><a href="#why-not-all-of-dbatools">Why not all of dbatools?</a></li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="too-long-didnt-read">Too long; didn’t read:</h2>
+
+<ul>
+  <li>
+<a href="https://github.com/dfinke/PowerShellMicroservice">Doug Finke wrote about pode server on docker</a>
+    <ul>
+      <li>
+<a href="https://github.com/QuadmanSWE/dbatools-restapi">I added dbatools to it</a>
+        <ul>
+          <li><a href="https://docs.microsoft.com/en-us/sql/relational-databases/databases/database-snapshots-sql-server?view=sql-server-ver15">It makes database restores go wroom</a></li>
+          <li>Developers do not need to know powershell or dbatools and the restore always works.</li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="background---a-testing-framework-with-some-infrastructure-issues">Background - a testing framework with some infrastructure issues</h2>
+<p>A customer of mine have written a fantastic framework for automatically testing a monolithic application whose database runs on sql server. The framework uses <a href="https://playwright.dev/">playwright</a> to make sure that the behavior of the application doesn’t regress. Playwright allows them to do things like finding information, changing information, and asserting that changes have been carried out as expected - while only interacting through chromium with the front end of the application. No APIs or database calls, just straight up telling their robot to look for element tags in what is rendered on the client.</p>
+
+<p>To be able to decouple the test cases from each-other, I implemented SQL Server database snapshots about a year or two ago to restore data quickly. In an early implementation of this I would use PowerShell but I had not been exposed to dbatools yet. More on that later.</p>
+
+<p>The basic structure is that before you start a batch of tests you would set up your database on an instance or on docker, run the application installer which would populate the base state of the application database, then add any base line testing data and lastly create the database snapshot. From there between each test the database would be restored to the snapshot.</p>
+
+<p>It all worked most of the time but the testing team ended up taking ownership of the setup and restoration as I moved on to other things and they chose to implement it as custom tsql code running in their testing framework, to avoid calling PowerShell executables from dotnet. After a while they introduced functionality that then lead to some race condition issues and they sometimes ended up in wonky states while running the tests.</p>
+
+<p>Meanwhile what I ended up doing was finding that the implementation that fits best is already inside dbatools with the <a href="https://docs.dbatools.io/New-DbaDbSnapshot">New-DbaDbSnapshot</a> and <a href="https://docs.dbatools.io/Restore-DbaDbSnapshot">Restore-DbaDbSnapshot</a> cmdlets.</p>
+
+<h2 id="decoupling-the-database-management-from-the-business-logic-of-the-testing-itself">Decoupling the database management from the business logic of the testing itself</h2>
+<p>My idea then became to take back the ownership of proper database handling for the testing, while still not having to add any PowerShell or tsql to the testing framework.</p>
+
+<p><a href="https://badgerati.github.io/Pode/">Enter Pode</a>: A module for writing RESTful APIs (and more) with PowerShell.</p>
+
+<p><a href="https://docs.dbatools.io">Featuring dbatools</a> to interact with the database</p>
+
+<p><a href="https://dfinke.github.io/powershell,%20docker,%20pode/2020/08/01/PowerShell-Microservice-Hello-World.html">All running on docker</a>, so that there is no new dependency while testing locally or in a build pipeline.</p>
+
+<p>Not only do the testers no longer have to care about sql server internals, they can change the rest api for another type of database management if they would like to in the future run on something other than SQL Server.</p>
+
+<p>Other teams and/or projects in the organization can leverage an API to perform tasks similar to this in other projects once they get comfortable with how easy it is to use.</p>
+
+<h2 id="getting-the-image-and-setting-up-a-demo-environment">Getting the image and setting up a demo environment</h2>
+
+<p>This example is using <a href="https://docs.docker.com/compose/">docker-compose</a> which is included with docker desktop. <a href="https://docs.docker.com/docker-for-windows/install/">If you are running on windows make sure you are using wsl2 to get it to work easily.</a></p>
+
+<p>Download the image</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>docker pull dsoderlund/dbatools-restapi:latest
+</code></pre></div></div>
+
+<p>Create a new empty dir and step into it.</p>
+
+<p>Create a .env file for the docker images to use</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>SA_USER=sa
+SA_PASSWORD=&lt;YourStrong@Passw0rd&gt;
+MSSQL_PID=Express
+DB_NAME=testing_docker
+ACCEPT_EULA=Y
+DB_SERVICENAME=sql
+DB_EXTERNALPORT=15050
+DB_INTERNALPORT=1433
+SNAPSHOTSUFFIX = _snapshot
+</code></pre></div></div>
+
+<p>Create a docker-compose.yaml file as so</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">version</span><span class="pi">:</span> <span class="s2">"</span><span class="s">3.9"</span>
+<span class="na">services</span><span class="pi">:</span>
+    <span class="na">db</span><span class="pi">:</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">mcr.microsoft.com/mssql/server:2019-latest</span>
+        <span class="na">container_name</span><span class="pi">:</span> <span class="s">${DB_SERVICENAME}</span>
+        <span class="na">deploy</span><span class="pi">:</span>
+            <span class="na">labels</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">APP=sqlserver</span><span class="pi">]</span>
+        <span class="na">ports</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="s2">"</span><span class="s">${DB_EXTERNALPORT}:${DB_INTERNALPORT}"</span>
+        <span class="na">env_file</span><span class="pi">:</span> 
+            <span class="pi">-</span> <span class="s">.env</span>
+        
+    <span class="na">db-sidecar</span><span class="pi">:</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">dsoderlund/dbatools-restapi:latest</span>
+        <span class="na">container_name</span><span class="pi">:</span> <span class="s">sidecar</span>
+        <span class="na">deploy</span><span class="pi">:</span>
+            <span class="na">labels</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">APP=pode</span><span class="pi">]</span>
+        <span class="na">ports</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="s2">"</span><span class="s">8080:8080"</span>
+        <span class="na">depends_on</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="s">db</span>
+        <span class="na">links</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="s2">"</span><span class="s">db:${DB_SERVICENAME}"</span>
+        <span class="na">env_file</span><span class="pi">:</span> 
+            <span class="pi">-</span> <span class="s">.env</span>
+</code></pre></div></div>
+
+<p>Up we go</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>docker-compose up -d
+</code></pre></div></div>
+
+<p>If you are using docker desktop you can find your two containers running happily in a bridge network
+<img src="../assets/dbatools-restapi-bridge-network.png" alt=""></p>
+
+<h2 id="things-you-can-do-with-the-example-implementation">Things you can do with the example implementation</h2>
+
+<p>All of the methods in the API are GETs.</p>
+
+<p>You can call the the rest endpoint with any http client. For example <a href="https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API">fetch api for javascript</a>, a <a href="https://docs.microsoft.com/en-us/dotnet/api/system.net.http.httpclient?view=net-5.0">HttpClient in dotnet</a> or plain Invoke-RestMethod in PowerShell (or Invoke-WebRequest for that matter if you are so inclined)</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="w">
+</span><span class="n">Invoke-RestMethod</span><span class="w"> </span><span class="nt">-Method</span><span class="w"> </span><span class="nx">GET</span><span class="w"> </span><span class="nt">-Uri</span><span class="w"> </span><span class="s1">'http://localhost:8080/'</span><span class="w">
+
+</span><span class="n">Invoke-WebRequest</span><span class="w"> </span><span class="nt">-Uri</span><span class="w"> </span><span class="s1">'http://localhost:8080/'</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">Select-Object</span><span class="w"> </span><span class="nt">-Expandproperty</span><span class="w"> </span><span class="nx">content</span><span class="w">
+
+</span></code></pre></div></div>
+
+<p>To simplify playing around you could wrap all of this nonsense like so</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="w">
+</span><span class="kr">Function</span><span class="w"> </span><span class="nf">Invoke-SidecarRequest</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="p">[</span><span class="n">CmdletBinding</span><span class="p">()]</span><span class="w">
+    </span><span class="kr">param</span><span class="p">(</span><span class="w">
+        </span><span class="p">[</span><span class="n">string</span><span class="p">]</span><span class="nv">$MethodName</span><span class="p">,</span><span class="w">
+        </span><span class="p">[</span><span class="n">string</span><span class="p">]</span><span class="nv">$Uri</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'http://localhost:8080'</span><span class="w">
+    </span><span class="p">)</span><span class="w">
+    </span><span class="n">Write-Verbose</span><span class="w"> </span><span class="s2">"Calling restmethod [</span><span class="nv">$MethodName</span><span class="s2">] on endpoint [</span><span class="nv">$Uri</span><span class="s2">]"</span><span class="w">
+    </span><span class="kr">return</span><span class="w"> </span><span class="n">Invoke-Restmethod</span><span class="w"> </span><span class="nt">-uri</span><span class="w"> </span><span class="s2">"</span><span class="nv">$Uri</span><span class="s2">/</span><span class="nv">$MethodName</span><span class="s2">"</span><span class="w"> </span><span class="nt">-TimeoutSec</span><span class="w"> </span><span class="nx">60</span><span class="w">
+</span><span class="p">}</span><span class="w">
+
+</span><span class="n">Invoke-SidecarRequest</span><span class="w"> </span><span class="s1">'Ping'</span><span class="w">
+
+</span></code></pre></div></div>
+
+<p>Running Ping like in the example above returns a message about the status of the sql server connectivity (using Test-NetConnection):</p>
+
+<p><img src="../assets/dbatools-restapi-ping.png" alt=""></p>
+
+<p>Running without a method name, just the root, will display a welcome message and give us the command palette:</p>
+
+<p><img src="../assets/dbatools-restapi-command-palette.png" alt=""></p>
+
+<ul>
+  <li>
+<strong>/Ping</strong> will indicate with a message the internal port and if the dbatools-restapi can communicate with the sql server configured in the environment file on that port.</li>
+  <li>
+<strong>/Errors</strong> will display contents of any error log file and can be used to debug</li>
+  <li>
+<strong>/DebugConfig</strong> will display what the dbatools-restapi is configured to use connect to the sql server through dbatools</li>
+  <li>
+<strong>/DatabaseExists</strong> will indicate (True/False) if  the database in the environment file exists or not on the sql server instance</li>
+  <li>
+<strong>/CreateDatabase</strong> will create the database if it doesn’t exist and drop and recreate it if it does exist</li>
+  <li>
+<strong>/DropDatabase</strong> will drop the database if it exists and does nothing if it doesn’t exist.</li>
+  <li>
+<strong>/SnapshotDatabase</strong> will remove any existing database snapshot for the database and then create a database snapshot for the database</li>
+  <li>
+<strong>/RestoreDatabase</strong> will restore any existing database snapshot for the database</li>
+</ul>
+
+<p>As you can gather from this, there can be only one snapshot, and that is exactly the use case that you want most of the time.</p>
+
+<h2 id="how-does-it-work">How does it work?</h2>
+
+<p>Pode lets you define your endpoints with PowerShell that when invoked runs some PowerShell code on the server and sends data back to the caller.</p>
+
+<p>By running it on a docker image with dbatools preinstalled, we can let those invocations carry out dbatools cmdlets before returning.</p>
+
+<p>Here is an example <a href="https://github.com/QuadmanSWE/dbatools-restapi/blob/main/src/StartPodeServer.ps1">straight from the source code of the docker image</a> that describes what the server does when the /RestoreDatabase endpoint is called.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">Add-PodeRoute</span><span class="w"> </span><span class="nt">-Method</span><span class="w"> </span><span class="nx">Get</span><span class="w"> </span><span class="nt">-Path</span><span class="w"> </span><span class="s1">'/RestoreDatabase'</span><span class="w"> </span><span class="nt">-scriptblock</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="kr">try</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="kr">if</span><span class="w"> </span><span class="p">(</span><span class="n">Get-DbaDbSnapshot</span><span class="w"> </span><span class="err">@</span><span class="nx">using:splat</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+            </span><span class="n">Restore-DbaDbSnapshot</span><span class="w"> </span><span class="err">@</span><span class="nx">using:splat</span><span class="w"> </span><span class="nt">-Force</span><span class="w">
+            </span><span class="n">Write-PodeTextResponse</span><span class="w"> </span><span class="nt">-Value</span><span class="w"> </span><span class="s1">'OK'</span><span class="w">
+        </span><span class="p">}</span><span class="w">
+        </span><span class="kr">else</span><span class="w"> </span><span class="p">{</span><span class="w">
+            </span><span class="n">Write-PodeTextResponse</span><span class="w"> </span><span class="nt">-Value</span><span class="w"> </span><span class="s1">'No snapshot to restore from'</span><span class="w">
+        </span><span class="p">}</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+    </span><span class="kr">catch</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="bp">$_</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">Write-PodeErrorLog</span><span class="w">
+        </span><span class="nx">Write-PodeTextResponse</span><span class="w"> </span><span class="nt">-Value</span><span class="w"> </span><span class="nv">$</span><span class="nn">using</span><span class="p">:</span><span class="nv">errormessage</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<h2 id="further-improvements">Further improvements</h2>
+
+<h3 id="extending-functionality">Extending functionality</h3>
+
+<p>You can use .pode files to get more advanced and dynamic behavior.</p>
+
+<p>You could either start from <a href="https://github.com/dfinke/PowerShellMicroservice">this reference base image</a> for pode in docker and write your own applicaiton or extend upon mine by layering your docker commands on top of my image. The reference image was <a href="https://dfinke.github.io/powershell,%20docker,%20pode/2020/08/01/PowerShell-Microservice-Hello-World.html">initially conceptualized by Doug Finke</a></p>
+
+<h3 id="why-not-all-of-dbatools">Why not all of dbatools?</h3>
+
+<p>You could, given some time, rewrite the functionality to incorporate any cmdlet from dbatools, perhaps with limitations of things you cannot do with a sql login on a remote instance. To do it you would iterate through dbatools with</p>
+
+<p><code class="language-plaintext highlighter-rouge">Get-Command -Module 'dbatools' | foreach-object { &lt;some magic&gt; }</code></p>
+
+<p>From there you would parse the parameter sets and for each set of parameters set up an endpoint of the appropriate method type that accepts the parameter sets as arguments.</p>
+
+<p>Simple, but not easy.</p>
+
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-sa/4.0">
+    <span>
+        <b>David Söderlund</b>
+    </span>
+    
+    <span>© 2025</span>
+  </a>
+</footer>
+
+  
+    <script type="text/javascript">
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+  ga('create', 'UA-263169605-1', 'auto');
+  ga('send', 'pageview');
+</script>
+  
+</body>
+
+</html>
