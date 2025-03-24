@@ -13,6 +13,23 @@ I call this project strongmoose.
 
 <!--more-->
 
+- [My problem with cloud](#my-problem-with-cloud)
+- [My vision for the future](#my-vision-for-the-future)
+  - [What do I mean by public utility](#what-do-i-mean-by-public-utility)
+- [Glossary](#glossary)
+- [First draft of a solution](#first-draft-of-a-solution)
+  - [A concrete example](#a-concrete-example)
+  - [So what is the control plane?](#so-what-is-the-control-plane)
+  - [How do we implement the actual features that consumers expect?](#how-do-we-implement-the-actual-features-that-consumers-expect)
+  - [What are potential future features?](#what-are-potential-future-features)
+  - [Security / isolation](#security--isolation)
+  - [How will vendors get paid?](#how-will-vendors-get-paid)
+- [Call to action](#call-to-action)
+- [Things we can work on right of the bat](#things-we-can-work-on-right-of-the-bat)
+- [Further reading](#further-reading)
+- [Thanks to](#thanks-to)
+
+
 ## My problem with cloud
 
 - Cloud computing today is dominated by proprietary platforms (Azure, AWS, GCP, Alicloud).
