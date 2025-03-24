@@ -156,6 +156,8 @@ Funding - We should talk with investors and ask what they want to see more of in
 
 Business model - Instead of waiting for vendors to jump in, perhaps first we become a wrapper for existing infrastructure providers. We could focus on being a vendor agnostic abstraction that allows them to move from one vendor to another or get the best price.
 
+Marketing - Sharing our idea with people, talking about our work, live streaming development.
+
 ## Further reading
 
 Please read the open letter, and the pitch from [EuroStack](https://euro-stackletter.eu/)
@@ -167,9 +169,11 @@ Dejan Sarka for the idea
 
 Klas Hermodsson and August Bering for the brainstorming
 
+Dilovan Celik for keeping me accountable and making sure I do the work
+
 Paul Persson for helping me shape my message
 
-Jenny Andersson and Carina Lindgren @ [Developers Bay](https://developersbay.se/) for helping me to reach people
+Jenny Andersson and Carina Lindgren @ [Developers Bay](https://developersbay.se/) for helping me reach people
 
 Lars Larsson @ [Elastisys](https://elastisys.com/) for all the advise
 
