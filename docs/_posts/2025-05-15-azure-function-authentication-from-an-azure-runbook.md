@@ -12,17 +12,19 @@ Too long didn't read: Azure functions authentication requires that the accessTok
 
 ## Background
 
-I have a customer who I helped previously build simple tools for automation of their infrastructure due to new customers coming in to their multi tenant solution. As part of the infrastructure they may need one or more of:
+I have a customer who I helped previously build simple tools for automation of their infrastructure. Their configuration and infrastructure changes through this automation due to them onboaring their new customers to their solution in which their customers can then self service a lot of the platform. As part of the infrastructure configuration management they may need one or more of:
 
 - DNS records
-- tenant configuration in a database
-- new databases
+- tenant configuration in some central database
+- New databases
 - keycloak organizations
 - Azure web app custom hostname with certificate binding
 
-This has worked well and good but they recently wanted to add some functionality and used Azure functions for, intending to migrate my old powershell scripts from runbooks to there to build a more powerful and flexible dashboard. This dashboard app will for obvious reasons have a nicer time invoking Azure functions than Azure automation runbooks.
+This has worked well and good but they recently wanted to add some functionality to the automation. For this they chose Azure functions, intending to migrate away from my old powershell scripts, thus unlocking a more powerful and flexible admin dashboard. This dashboard app will for obvious reasons have a nicer time invoking Azure functions than Azure automation runbooks.
 
-Naïvly I just thought I would use something like `Connect-AzAccount` in directly in powershell and set the tenant and subscription - or use `az account get-access-token` to get something I could use to make the request, but I was met by failure.
+Running their function with Invoke-RestMethod returned a 401 and they asked me for some help.
+
+Naïvly I tought that I could just use something like `Connect-AzAccount` directly in powershell and set the tenant and subscription - or use `az account get-access-token` to get something I could use to make the request, but I was met by failure.
 
 ``` powershell
 $AzureFunctionUrl = "https://somefunction-somenounce.region.azurewebsites.net/api/SomeFunction"
@@ -39,7 +41,7 @@ Invoke-RestMethod -Method Post -Uri $AzureFunctionUrl -Body $jsonSomeBody -Conte
 
 ## The problem that you might also have
 
-So we are dealing with an azure function, it is not publicly available, nor available with an apikey, so we need to authenticate to be able to have our call authorized. Yet the normal way one might think of getting such an auth token is invalid. We have to go deeper.
+So we are dealing with an Azure function, it is not publicly available, nor available with an apikey, so we need to authenticate to be able to have our call authorized. Yet the normal way one might think of getting such an auth token is invalid. We have to go deeper.
 
 As a normal user with a frontend in a browser or mobile app, usually this isn't that hard to wrap your head around when building an application leveraging Azure functions or any serverless platform. Your functions/applications are their own thing separate from your Azure Resource Management and you will use the `/.auth/aad` or whic hever federation you set up. The user will navigate the flow and come out the other end with an access token.
 
