@@ -43,7 +43,7 @@ Invoke-RestMethod -Method Post -Uri $AzureFunctionUrl -Body $jsonSomeBody -Conte
 
 So we are dealing with an Azure function, it is not publicly available, nor available with an apikey, so we need to authenticate to be able to have our call authorized. Yet the normal way one might think of getting such an auth token is invalid. We have to go deeper.
 
-As a normal user with a frontend in a browser or mobile app, usually this isn't that hard to wrap your head around when building an application leveraging Azure functions or any serverless platform. Your functions/applications are their own thing separate from your Azure Resource Management and you will use the `/.auth/aad` or whic hever federation you set up. The user will navigate the flow and come out the other end with an access token.
+As a normal user with a frontend in a browser or mobile app, usually this isn't that hard to wrap your head around when building an application leveraging Azure functions or any serverless platform. Your functions/applications are their own thing separate from your Azure Resource Management and you will use the `/.auth/aad` or whichever oidc federation you set up. The user will navigate the browser flow and come out the other end with an access token .
 
 You could do the same via a device flow to get an intermediate identity token that you can then send to Azure to get a working access token for the application.
 
