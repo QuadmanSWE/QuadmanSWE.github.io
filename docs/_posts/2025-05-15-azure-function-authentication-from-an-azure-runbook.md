@@ -8,7 +8,7 @@ In this post I will explain how authentication in Azure Functions compare to aut
 
 <!--more-->
 
-Too long didn't read: Azure functions authentication requires that the accessToken audience matches tha application id of the IDP tied to the function app. So even Azure resources whose managed service identities are granted access should create access tokens issued by the tenant, and with the for the audience of the Azure function, not the Azure resource management (`aud: https://management.core.windows.net/`) like one might think.
+Too long didn't read: Azure functions authentication requires that the accessToken audience matches the application id of the IDP tied to the function app. So even Azure resources whose managed service identities are granted access should create access tokens issued by the tenant, and with the audience of the Azure function, not the Azure resource management (`aud: https://management.core.windows.net/`) like one might think.
 
 ## Background
 
