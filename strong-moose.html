@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+
+  <title>Cloud Computing as a Utility - A Vision for an Open, Vendor-Free Future</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="alternate" type="application/atom+xml" href="/feed.xml">
+</head>
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    <h1>blog.dsoderlund.consulting</h1>
+    </a>
+    <div class="header-links">
+      <a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Cloud Computing as a Utility - A Vision for an Open, Vendor-Free Future</h2>
+  <time datetime="2025-03-23T00:00:00+00:00" class="by-line">23 Mar 2025</time>
+  <p>Hi there, I have started a new venture!</p>
+
+<p>My vision is a future where consuming or providing cloud computing is as ubiquitous as power through the electric grid.</p>
+
+<p>I call this project strongmoose.</p>
+
+<!--more-->
+
+<ul>
+  <li><a href="#my-problem-with-cloud">My problem with cloud</a></li>
+  <li>
+<a href="#my-vision-for-the-future">My vision for the future</a>
+    <ul>
+      <li><a href="#what-do-i-mean-by-public-utility">What do I mean by public utility</a></li>
+    </ul>
+  </li>
+  <li><a href="#glossary">Glossary</a></li>
+  <li>
+<a href="#first-draft-of-a-solution">First draft of a solution</a>
+    <ul>
+      <li><a href="#a-concrete-example">A concrete example</a></li>
+      <li><a href="#so-what-is-the-control-plane">So what is the control plane?</a></li>
+      <li><a href="#how-do-we-implement-the-actual-features-that-consumers-expect">How do we implement the actual features that consumers expect?</a></li>
+      <li><a href="#what-are-potential-future-features">What are potential future features?</a></li>
+      <li><a href="#security--isolation">Security / isolation</a></li>
+      <li><a href="#how-will-vendors-get-paid">How will vendors get paid?</a></li>
+    </ul>
+  </li>
+  <li><a href="#call-to-action">Call to action</a></li>
+  <li><a href="#things-we-can-work-on-right-of-the-bat">Things we can work on right of the bat</a></li>
+  <li><a href="#further-reading">Further reading</a></li>
+  <li><a href="#thanks-to">Thanks to</a></li>
+</ul>
+
+<h2 id="my-problem-with-cloud">My problem with cloud</h2>
+
+<ul>
+  <li>Cloud computing today is dominated by proprietary platforms (Azure, AWS, GCP, Alicloud).</li>
+  <li>Consumers are locked into ecosystems, pricing, policies, and regional restrictions of a few major vendors.</li>
+  <li>Lack of price transparency, not trivial to shift providers.</li>
+  <li>Enterprises have excess compute capacity that remains underutilized.</li>
+</ul>
+
+<h2 id="my-vision-for-the-future">My vision for the future</h2>
+
+<ul>
+  <li>Cloud computing should be like a public utility.</li>
+  <li>Workloads should be deployable with the same declarative configuration, regardless of provider.</li>
+  <li>Enterprises and independent providers can rent out extra capacity.</li>
+  <li>A free market for cloud infrastructure with seamless portability.</li>
+</ul>
+
+<h3 id="what-do-i-mean-by-public-utility">What do I mean by public utility</h3>
+
+<p>Let’s take an example, this is my toaster. I really like it.</p>
+
+<p><img src="../assets/my-toaster.png" alt="My toaster"></p>
+
+<p>It has two interfaces and it does one thing really well. (It also illustrates my point really well - so I guess it can do two things really well?)</p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Interfaces</td>
+      <td>[wall plug, bread slots]</td>
+    </tr>
+    <tr>
+      <td>Input</td>
+      <td>Sliced bread</td>
+    </tr>
+    <tr>
+      <td>Output</td>
+      <td>Toast</td>
+    </tr>
+    <tr>
+      <td>Prerequisites</td>
+      <td>Connect to outlet</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>For this appliance, the marvel of simplicity springs out of a really good interface (the wall outlet) to a fantastic platform (the electric grid).</p>
+
+<p>What I am trying to achive with this project is to have the cloud infrastructure analogy of the electric grid.</p>
+
+<p>Now just as with the creation and the continued operation of the electric grid, this is easier said than done.</p>
+
+<h2 id="glossary">Glossary</h2>
+
+<p>Consumers: Anyone who wants to run stuff in the cloud</p>
+
+<p>Vendors: Anyone who can provide hardware to run stuff on.</p>
+
+<p>Control-plane: That’s us - strongmoose! The exchange that provides programable interfaces for consumers’ resource requests and makes them run on one or more vendors’ computers.</p>
+
+<h2 id="first-draft-of-a-solution">First draft of a solution</h2>
+
+<p>Let’s build a broker, analogous to a stock exchange, to match buyers and sellers (consumers and vendors).</p>
+
+<ul>
+  <li>
+    <p>Build a multi-tenant, multi-site <a href="https://kubernetes.io/">Kubernetes</a> cluster.</p>
+  </li>
+  <li>
+    <p>Decentralized workload scheduling based on location, price, and compliance requirements.</p>
+  </li>
+  <li>
+    <p>A model where providers compete on cost, performance, and compliance while consumers maintain control over their workloads.</p>
+  </li>
+</ul>
+
+<h3 id="a-concrete-example">A concrete example</h3>
+
+<p>In this example a consumer on the left requests the execution of a spark job that will read some files from a storage, and produce some new output files in the same storage.</p>
+
+<p>Nodes in the cluster have been provided by different vendors. Vendors will be able to not only supply the amount of resources, but also report availability by hour and day. Similar to the reverse auction on the market for prices of electricity.</p>
+
+<p>The control plane schedules the workload by matching the job request to which node(s) fit well. Think <a href="https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/">taints/tolerations</a>, <a href="https://kubernetes.io/docs/concepts/containers/runtime-class/">runtimeclasses</a> and so on. The schedulers algorithm needs to be augmented for this to work.</p>
+
+<p><img src="../assets/2025-03-23-19-04-54-example-of-requesting-spark-job.png" alt="example-of-requesting-spark-job"></p>
+
+<h3 id="so-what-is-the-control-plane">So what is the control plane?</h3>
+
+<p>The control plane will act as the exchange between consumers and providers. I am thinking starting out with either <a href="https://www.talos.dev/">talos</a> or <a href="https://k3s.io/">k3s</a> modifications for the networking for isolation and for the database to <a href="https://cloud.google.com/blog/products/containers-kubernetes/gke-65k-nodes-and-counting">something that scales better and is more future proof than etcd</a>.</p>
+
+<h3 id="how-do-we-implement-the-actual-features-that-consumers-expect">How do we implement the actual features that consumers expect?</h3>
+
+<p>I imagine we will write custom resource defintions for the initial MVP feature(s). Using some combination of <a href="https://kro.run/">KRO</a>, <a href="https://www.crossplane.io/">crossplane</a>, and <a href="https://knative.dev">knative</a>.</p>
+
+<p>Kubernetes is all about APIs when it comes to making requests for resources. An actual manifest of the example in the picture above of a spark job for a consumer “xyz” might look something like this:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">strongmoose.dsoderlund.consulting/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">job</span>
+<span class="na">metadata</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">my-first-sparkjob</span>
+    <span class="na">namespace</span><span class="pi">:</span> <span class="s">xyz</span>
+<span class="na">spec</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">apache/spark</span>
+    <span class="na">notAfter</span><span class="pi">:</span> <span class="s">2025-03-25T08:25:58Z</span>
+    <span class="na">maxEuroPerDTU</span><span class="pi">:</span> <span class="m">50</span>
+    <span class="na">scriptPath</span><span class="pi">:</span> <span class="s">/myjobs/spark/script.py</span>
+    <span class="na">env</span><span class="pi">:</span>
+        <span class="na">INPUT</span><span class="pi">:</span> <span class="s">/myjobs/data</span>
+    <span class="na">restrictions</span><span class="pi">:</span>
+        <span class="na">region</span><span class="pi">:</span> <span class="s">Sweden</span>
+        <span class="na">vendor</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">elastx</span><span class="pi">,</span> <span class="nv">safespring</span><span class="pi">]</span>
+</code></pre></div></div>
+
+<h3 id="what-are-potential-future-features">What are potential future features?</h3>
+
+<ul>
+  <li>
+    <p>One of jobs</p>
+  </li>
+  <li>
+    <p>Serverless</p>
+  </li>
+  <li>
+    <p>Blob storage / S3 compatible storage</p>
+  </li>
+  <li>
+    <p>VMs (kubevirt)</p>
+  </li>
+  <li>
+    <p>Kubernetes as a service (kamaji, vclusters)</p>
+  </li>
+</ul>
+
+<h3 id="security--isolation">Security / isolation</h3>
+
+<p>How do we make sure that information can’t leak from one customer to another, or that vendors can read/manipulate information running in their infrastructure?</p>
+
+<p>Probably some combination of <a href="https://www.tigera.io/project-calico/">calico</a>, <a href="https://kyverno.io/">kyverno</a>, <a href="https://kamaji.clastix.io/">kamaji</a>, and/or <a href="https://capsule.clastix.io/">capsule</a>.</p>
+
+<p>I am currently experimenting in my homelab and interviewing people to get my head around proper isolation between tenants and also the worker nodes themselves which will be provided by potentially untrusted / adversary vendors.</p>
+
+<p>This is an area where I need a lot of help. If you can help you should talk to me.</p>
+
+<h3 id="how-will-vendors-get-paid">How will vendors get paid?</h3>
+
+<p>We will try and insert telemetry that shows what has actually been utilized. For now this aspect will be a fictional account as we manually spin up VMs on different vendors and connect them.</p>
+
+<h2 id="call-to-action">Call to action</h2>
+
+<p>If you would like to work on this project or know someone who you think is interested, connect with me any way you like.</p>
+
+<p>If we have enough people interested there are some avenues of seeking funding that I have already explored, if we find the right way of working we can make a company out of this.</p>
+
+<p>We are not setting up any new data centers, we will partner with existing infrastructure providers. Skills in this area are invaluable though.</p>
+
+<p>Our primary directive that we will use to gauge our success is if it is easy enough to use while still being pleasant to operate and manage.</p>
+
+<p>I am commited to building an open-source hyper-scaler to provide core cloud infrastructure features to anyone and I would love for others to care about this as much as I do.</p>
+
+<h2 id="things-we-can-work-on-right-of-the-bat">Things we can work on right of the bat</h2>
+
+<p>Get it to actually work - I am already trying my best to learn more about multi-tenancy and how to run <a href="https://github.com/QuadmanSWE/kine-yugabytedb/">kine on top of YugaByteDB</a> as a wrapper for etcd to not get choked to death immediatly trying to stretch a large cluster to multiple sites.</p>
+
+<p>Scale out - After that it might be fun to try and spin up and join some more VMs at other vendors such as <a href="https://elastx.se/">elastx</a> or <a href="https://www.safespring.com/">safespring</a> who have both provided great input to this project so far (thanks guys).</p>
+
+<p>Packaging - I would love to learn how to distribute the software that nodes need to run to function in our cluster. Something similar to k3s or talos but with our flavor.</p>
+
+<p>Funding - We should talk with investors and ask what they want to see more of in order to secure funding.</p>
+
+<p>Business model - Instead of waiting for vendors to jump in, perhaps first we become a wrapper for existing infrastructure providers. We could focus on being a vendor agnostic abstraction that allows them to move from one vendor to another or get the best price.</p>
+
+<p>Marketing - Sharing our idea with people, talking about our work, live streaming development.</p>
+
+<h2 id="further-reading">Further reading</h2>
+
+<p>Please read the open letter, and the pitch from <a href="https://euro-stackletter.eu/">EuroStack</a></p>
+
+<h2 id="thanks-to">Thanks to</h2>
+
+<p>Dejan Sarka for the idea</p>
+
+<p>Klas Hermodsson and August Bering for the brainstorming</p>
+
+<p>Dilovan Celik for keeping me accountable and making sure I do the work</p>
+
+<p>Paul Persson for helping me shape my message</p>
+
+<p>Jenny Andersson and Carina Lindgren @ <a href="https://developersbay.se/">Developers Bay</a> for helping me reach people</p>
+
+<p>Lars Larsson @ <a href="https://elastisys.com/">Elastisys</a> for all the advise</p>
+
+<p>Gustav Lundqvist and Jens Brintler @ <a href="https://elastx.se/">elastx</a> for their feedback</p>
+
+<p>Petter Hylin and Gabriel Paues @ <a href="https://www.safespring.com/">safespring</a> for their feedback</p>
+
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-sa/4.0">
+    <span>
+        <b>David Söderlund</b>
+    </span>
+    
+    <span>© 2025</span>
+  </a>
+</footer>
+
+  
+    <script type="text/javascript">
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+  ga('create', 'UA-263169605-1', 'auto');
+  ga('send', 'pageview');
+</script>
+  
+</body>
+
+</html>

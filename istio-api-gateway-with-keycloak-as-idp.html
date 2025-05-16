@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+
+  <title>Istio API gateway with keycloak as IDP</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="alternate" type="application/atom+xml" href="/feed.xml">
+</head>
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    <h1>blog.dsoderlund.consulting</h1>
+    </a>
+    <div class="header-links">
+      <a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Istio API gateway with keycloak as IDP</h2>
+  <time datetime="2023-01-14T00:00:00+00:00" class="by-line">14 Jan 2023</time>
+  <p>Having an API gateway and single sign on for every service deployed behind that gateway allows our developers to ignore developing their applications to be aware of issuers, token validation for authentication, et cetera and they can focus on checking the token claims for authorization.</p>
+
+<!--more-->
+
+<h2 id="prerequisites">Prerequisites:</h2>
+
+<ul>
+  <li>A running Kubernetes cluster that you can control.</li>
+</ul>
+
+<p>We choose to run on Azure, and have created our cluster using terraform.</p>
+
+<p>We choose to store our platform resources in a git repo and have them being synced through ArgoCD. You can deploy the helm charts and or resources manually with kubectl.</p>
+
+<h2 id="the-api-gateway-we-were-looking-to-build-had-the-following-requirements">The API gateway we were looking to build had the following requirements:</h2>
+
+<ul>
+  <li>Handle authentication of any traffic from the outside
+    <ul>
+      <li>Demonstrate brokering identities from AAD</li>
+    </ul>
+  </li>
+  <li>Allow services to be plug and play in the mesh
+    <ul>
+      <li>Services should not need to implement authentication</li>
+      <li>Demonstrate custom role claims in tokens for services to use in business logic</li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="the-technologies-we-chose-to-use">The technologies we chose to use:</h2>
+
+<ul>
+  <li>Keycloak to handle authentication and handing out tokens</li>
+  <li>Oauth2-Proxy to validate and store tokens in redis.</li>
+  <li>Istio to handle incoming requests and forward headers for validation</li>
+</ul>
+
+<p>This is the general flow that we imagined for end users when sending requests to any service inside our mesh</p>
+
+<p><img class="mermaid" src="https://mermaid.ink/svg/eyJjb2RlIjoic2VxdWVuY2VEaWFncmFtXG5QYXJ0aWNpcGFudCBVIGFzIFVzZXJcblBhcnRpY2lwYW50IEkgYXMgSW5ncmVzcyBHYXRld2F5XG5QYXJ0aWNpcGFudCBQciBhcyBPQXV0aDItUHJveHlcblBhcnRpY2lwYW50IFJlIGFzIFJlZGlzXG5QYXJ0aWNpcGFudCBLQyBhcyBLZXljbG9ha1xuUGFydGljaXBhbnQgc3ZjIGFzIFNlcnZpY2VcbiUlLVxuVS0-Pkk6IGh0dHBzOi8vbXlkb21haW4uaW9cbkktPj5QcjogTm90IGF1dGhlbnRpY2F0ZWRcblByLT4-UmU6IGluaXQgc3RhdGVcblByLT4-VTogUmVkaXJlY3QgdG8gcHJvdmlkZXJcblUtPj5JOiAvYXV0aFxuSS0-PktDOiAvYXV0aFxuS0MtPj5VOiByZXNvbHZlIGF1dGhlbnRpY2F0aW9uLCBkaXJlY3RzIHRvIGNhbGxiYWNrXG5VLT4-STogL29hdXRoMi9jYWxsYmFjaz9zdGF0ZT0uLi5cbkktPj5QcjogL29hdXRoMi9jYWxsYmFja1xuUHItPj5LQzogL3Rva2VuXG5LQy0-PlByOiByZXR1cm5zIHRva2VucyB0aHJvdWdoIGJhY2tjaGFubmVsXG5Qci0-PlJlOiBTdG9yZSB0b2tlbnNcblByLT4-VTogUmVkaXJlY3QgdG8gb3JpZ2luYWwgaG9zdG5hbWVcblUtPj5JOiBodHRwczovL215ZG9tYWluLmlvXG5JLT4-UHI6IEF1dGhlbnRpY2F0ZWRcblByLT4-STogMjAwOiBPS1xuSS0-PnN2YzogbXlkb21haW4uaW9cbnN2Yy0-PlU6IEFwcHJvdmVkIENvbnRlbnQiLCJtZXJtYWlkIjp7InRoZW1lIjoiZGFyayJ9fQ"></p>
+
+<h2 id="terraform-for-aks-argocd-for-resources">Terraform for AKS, ArgoCD for resources.</h2>
+
+<p>ArgoCD app of apps for our platform cluster deploys the following using third party helm charts or some simple custom manifests:</p>
+
+<ul>
+  <li>External-DNS</li>
+  <li>Istio
+    <ul>
+      <li>base</li>
+      <li>istiod</li>
+      <li>gateway</li>
+      <li>Oauth2-Proxy</li>
+    </ul>
+  </li>
+  <li>Certmanager</li>
+  <li>AAD-pod-identity</li>
+  <li>Keycloak</li>
+  <li>kube prometheus stack</li>
+  <li>Sealed secrets</li>
+</ul>
+
+<h2 id="postgres">Postgres</h2>
+
+<p>We chose postgres for our keycloak database, we also use if for <a href="https://backstage.io/">Backstage</a>.</p>
+
+<p>We run our postgres server on Azure.</p>
+
+<p>One issue you might run into is that Azure signs the keys with sha1 for flexibles servers. So keycloak 21 and higher need you to mount the suitable ca.crt for it to trust it. (Works normally up until version 20 of keycloak and for other postgres offerings on Azure.)</p>
+
+<h2 id="keycloak-setup">Keycloak setup</h2>
+
+<p>We used <a href="https://github.com/codecentric/helm-charts/tree/master/charts/keycloakx">this helm chart</a> and created <a href="https://github.com/bitnami-labs/sealed-secrets">sealed secrets</a> for a keycloak root account and the postgres credentials.</p>
+
+<p>Here is what it looks like in argocd, the app of apps scheme makes it look a bit wonky but it works.</p>
+
+<p><img src="../assets/2023-04-05-istio-1-kcx.png" alt=""></p>
+
+<p>After our initial bout with keycloak we have set up another implementation of it using kustomize with great results. That instance is for experimenting with some other stuff and not used for our istio api gateway. Much simpler to work with though in my opinion than the helm installation</p>
+
+<p><img src="../assets/2023-04-05-istio-2-kck.png" alt=""></p>
+
+<h2 id="istio">Istio</h2>
+
+<p>We went ahead and installed istio with <a href="https://istio.io/latest/docs/setup/install/helm/">its helm charts</a> through argocd.</p>
+
+<p>Some configuration highlights from what I remember</p>
+
+<blockquote>
+  <p>📝 This is a very summarized list, I implore you to scour the web for details on how to set everything</p>
+</blockquote>
+
+<ul>
+  <li>
+    <p>Created an oidc client in keycloak for oauth2 proxy with a bunch of mappers and scope settings to fit our needs.</p>
+  </li>
+  <li>
+    <p>istiod configuration extensionprovider envoyExtAuthzHttp set to point to oauth2 proxy.</p>
+  </li>
+  <li>
+    <p>Added an AuthorizationPolicy of type CUSTOM for the oauth2 proxy extensionprovider to apply to everything but the /auth prefix (can’t redirect requests that are being redirected to keycloak 😄)</p>
+  </li>
+  <li>
+    <p>set oauth2_proxy.cfg to use keycloak as its issuer and a bunch of related keycloak urls and settings</p>
+  </li>
+  <li>
+    <p>secrets for redis and keycloak client credentials and cookie encryption</p>
+  </li>
+</ul>
+
+<h2 id="single-sign-on">Single sign on</h2>
+
+<p>Here is what the experience is like for a user.</p>
+
+<p>I cleared out my cookies and refreshed the /echo service we have set up that just dumps the request back to the user.</p>
+
+<p>Otherwise the client could not see what is going on (remember the user only gets the cookie from oauth2 proxy to store).</p>
+
+<p>As you can see on the right in dev tools, when requesting “echo” service I get redirected to /auth (keycloak), then to /login (microsoft azure active directory which we federate to), then I get passed around in there by microsoft for a while, then back to /callback with the code that oauth2 proxy expects in return for a cookie that it has already prepared in redis. Lastly the upstream service /echo loads and I can see all of the info that every upstream service has available (while I the user have only a cookie).</p>
+
+<p><img src="../assets/2023-04-05-echo-3.png" alt=""></p>
+
+<h2 id="summary">Summary</h2>
+
+<p>Benefits for developers of running apps in kubernetes is of course to be able to get logs and metrics in a unified way. With the addition of istio we can add to that richer traffic metrics, and traffic management abilities such as circuit breaking and retry logic. All which reduces the cognetitive load and meta-data handling bloat that takes away from focus on the business logic.</p>
+
+<p>All in all this approach enables us to raise the bar of what a new application can do without a lot of boiler plate, and everyone’s apps work the same way in these aspects since it is dealt with on the infrastructure level.</p>
+
+<p>An API gateway with istio becomes one more thing in that effort. One more thing that we can take out of each application to otherwise deal with.</p>
+
+<p>Essentially we can promise developers that “if traffic hits your app on any port: it has been encrypted and is always authenticated, just make sure it is authorized.”</p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-sa/4.0">
+    <span>
+        <b>David Söderlund</b>
+    </span>
+    
+    <span>© 2025</span>
+  </a>
+</footer>
+
+  
+    <script type="text/javascript">
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+  ga('create', 'UA-263169605-1', 'auto');
+  ga('send', 'pageview');
+</script>
+  
+</body>
+
+</html>
