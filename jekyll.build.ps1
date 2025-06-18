@@ -109,17 +109,17 @@ Content here
 }
 
 task importImages {
-    if($IsLinux -eq $true) {
+    if ($IsLinux -eq $true) {
         $screenshotdir = Get-Item ~/Pictures
         $prefixToRemove = 'Screenshot from '
     }
-    elseif($IsWindows -eq $true) {
+    elseif ($IsWindows -eq $true) {
         $screenshotdir = Get-Item ~/OneDrive/Pictures/Screenshots
         $prefixToRemove = 'Skärmbild '
     }
-    if($screenshotdir -ne $null) {
+    if ($screenshotdir -ne $null) {
         Get-ChildItem $screenshotdir | Where-Object { $_.LastWriteTime -gt (Get-Date).AddMinutes(-$cutoffMinutes) } | ForEach-Object {
-            $newname = $_.Name.Replace($prefixToRemove,'').Replace(' ','-').ToLower()
+            $newname = $_.Name.Replace($prefixToRemove, '').Replace(' ', '-').ToLower()
             Write-Host "Copying $($_.FullName) to $rootdir/docs/assets/$newname"
             Copy-Item $_.FullName "$rootdir/docs/assets/$newname"
         }
@@ -128,5 +128,39 @@ task importImages {
         Write-Host "Couldn't import any screenshots, check the path [$screenshotdir]"
     }
 }
+
+task posttags {
+    push-location $rootdir/docs
+    Remove-Item tags -Recurse -ErrorAction SilentlyContinue | Out-Null
+    New-Item tags -ItemType Directory | Out-Null
+    $frontMatterPattern = '(?ms)^---\s*\r?\n(.*?)\r?\n---\s*\r?\n'
+
+    $alltags = @()
+    foreach ($file in gci _posts) {
+        $content = Get-Content $file -raw
+        if ($content -match $frontMatterPattern) {
+            foreach ($line in $matches[1] -split [System.Environment]::NewLine) {
+                $line -split ':', 2 | % {
+                    $parts = $line -split ':', 2
+                    if ($parts.Count -eq 2) {
+                        $key = $parts[0].Trim()
+                        if ($key -eq 'tags') {
+                            $value = $parts[1].Trim() -split ' '
+                            $alltags += $value.ToLower()
+                        }
+                    }
+                }
+            }        
+        }
+    }
+    $alltags = $alltags | Sort-Object -Unique
+    Write-Host "All tags: "
+    Write-Host $alltags
+    $alltags | Sort-Object -Unique | % {
+        "---`nlayout: tags`ntag-name: $_`n---" | Out-File -Path "tags/$_.md"
+    }
+    
+}
+task generateTags posttags
 task copyImages importImages
-task . proofread, serve, surf
+task . proofread, generateTags, serve, surf
