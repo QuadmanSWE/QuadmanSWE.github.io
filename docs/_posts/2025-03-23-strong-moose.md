@@ -3,6 +3,7 @@ title: Cloud Computing as a Utility
  - A Vision for an Open, Vendor-Free Future
 published: true
 excerpt_separator: <!--more-->
+tags: strongmoose cloud kubernetes
 ---
 
 Hi there, I have started a new venture!

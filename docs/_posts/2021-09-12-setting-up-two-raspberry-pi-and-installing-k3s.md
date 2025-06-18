@@ -2,6 +2,7 @@
 title: Quick guide to kubernetes on raspberry pi
 published: true
 excerpt_separator: <!--more-->
+tags: kubernetes k3s
 ---
 
 # Beyond Minikube - setting up two raspberry pi with k3s to get experience with kubernetes.

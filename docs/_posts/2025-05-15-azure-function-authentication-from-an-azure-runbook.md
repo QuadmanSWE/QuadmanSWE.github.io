@@ -2,6 +2,7 @@
 title: Calling an Azure Function from an Azure Automation Runbook
 published: true
 excerpt_separator: <!--more-->
+tags: azure azure-functions azure-runbooks authz
 ---
 
 In this post I will explain how authentication in Azure Functions compare to authentication in Azure resources in general. This allows us to invoke a function from an Azure Automation Runbook.

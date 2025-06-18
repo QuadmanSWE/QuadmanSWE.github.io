@@ -2,6 +2,7 @@
 title: External DNS with pihole
 published: true
 excerpt_separator: <!--more-->
+tags: kubernetes external-dns dns pi-hole
 ---
 
 The [external-dns operator for kubernetes](https://kubernetes-sigs.github.io/external-dns/) is simple enough that running it at home is as easy as **π**. In this post I will show how to set up external-dns with pihole as the DNS provider, and cover some of the quirks when you use [Istio](https://istio.io/) instead of a traditional ingress.

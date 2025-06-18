@@ -2,6 +2,7 @@
 title: CockroachDB through ArgoCD
 published: true
 excerpt_separator: <!--more-->
+tags: kubernetes argocd cockroachdb helm
 ---
 
 # ArgoCD is awesome until it isn't

@@ -2,6 +2,7 @@
 title: Keycloak in multi-tenant self service scenarios
 published: true
 excerpt_separator: <!--more-->
+tags: keycloak kubernetes multitenancy phasetwo authz azure
 ---
 
 This is a guide on how to get up and running with the phasetwo open source solution to the problem of true multitenancy with per tenant self service of single sign on and roles.
@@ -66,7 +67,7 @@ Faced with this I suggested we spin up a simple keycloak using their existing pa
 
 ![Simplified azure arcitecture drawing of dns, keycloak in azure web apps, and a jdbc connection to azure sql database](../assets/2024-11-04-img2-azure-architecture.png)
 
-In my reference platform you can get this running with kubernetetes and postgres instead. Link at the bottom of the post. [The code to get the custom image is here](https://github.com/QuadmanSWE/ds-ref-platform/tree/main/multitenant-keycloak).
+In my reference platform you can get this running with kubernetes and postgres instead. Link at the bottom of the post. [The code to get the custom image is here](https://github.com/QuadmanSWE/ds-ref-platform/tree/main/multitenant-keycloak).
 
 ### Goals
 

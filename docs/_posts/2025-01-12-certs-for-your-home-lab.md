@@ -2,6 +2,7 @@
 title: Automating homelab server certificate rotation
 published: true
 excerpt_separator: <!--more-->
+tags: kubernetes cert-manager certificates cronjobs openwrt pi-hole proxmox argocd nas
 ---
 
 In this post I will show you how to use cronjobs in kubernetes to automate the updating of certificates from cert-manager to different servers in your local network.

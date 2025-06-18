@@ -2,6 +2,7 @@
 title: The joy of Kubernetes - Teaser
 published: true
 excerpt_separator: <!--more-->
+tags: joy-of-kubernetes
 ---
 
 Hello there. Over the coming weeks I hope to share some of the fun stuff I have had with the setup I run at home.

@@ -2,6 +2,7 @@
 title: "The Joy of Kubernetes 2 - Let us Encrypt"
 published: true
 excerpt_separator: <!--more-->
+tags: joy-of-kubernetes kubernetes cert-manager letsencrypt google cloud dns certificates argocd
 ---
 
 # Welcome to the Joy of Kubernetes

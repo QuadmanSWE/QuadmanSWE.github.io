@@ -2,6 +2,7 @@
 title: Istio API gateway with keycloak as IDP
 published: true
 excerpt_separator: <!--more-->
+tags: kubernetes istio keycloak oauth2-proxy argocd redis authz
 ---
 
 Having an API gateway and single sign on for every service deployed behind that gateway allows our developers to ignore developing their applications to be aware of issuers, token validation for authentication, et cetera and they can focus on checking the token claims for authorization.

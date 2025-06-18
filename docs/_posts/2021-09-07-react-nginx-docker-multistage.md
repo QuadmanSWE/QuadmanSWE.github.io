@@ -2,6 +2,7 @@
 title: Exploring multi-stage build in docker to learn javascript in the future
 published: true
 excerpt_separator: <!--more-->
+tags: kubernetes docker nodejs
 ---
 
 # Building a simple react web app on docker that can be hosted anywhere

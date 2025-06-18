@@ -2,6 +2,7 @@
 title: Testing out flexibility in microservices deployment with dapr
 published: true
 excerpt_separator: <!--more-->
+tags: kubernetes dapr argocd rabbitmq redis typescript
 ---
 
 This blogpost will show you how using dapr (distributed application runtime) in your services will not only allow the development side to abstract away infrastructure implementation details, but also how the operations side can automate and simplify the deployment of the apps together with the chosen implementation.

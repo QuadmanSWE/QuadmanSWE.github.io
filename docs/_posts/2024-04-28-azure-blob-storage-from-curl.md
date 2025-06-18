@@ -2,6 +2,7 @@
 title: Azure blob storage from curl
 published: true
 excerpt_separator: <!--more-->
+tags: azure azure-blob-storage curl
 ---
 
 # Upload large files from tiny devices to Azure blob storage

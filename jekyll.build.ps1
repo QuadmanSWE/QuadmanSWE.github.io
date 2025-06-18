@@ -8,7 +8,7 @@ param(
 )
 $rootdir = git rev-parse --show-toplevel
 task proofread {
-    $learntospellyoudunce = @("kubernets", "kuberen", "oath", "serer", "challange")
+    $learntospellyoudunce = @("kubernets", "kuberen", "oath", "serer", "challange", "kubernetetes")
     $spellingmisstakes = gci "$rootdir/docs/_posts/*.md" | % {
         gc $_ | Select-String -Pattern $learntospellyoudunce
     }
@@ -96,6 +96,7 @@ task newpost {
 title: $postname
 published: true
 excerpt_separator: <!--more-->
+tags: 
 ---
 
 Exerpt!

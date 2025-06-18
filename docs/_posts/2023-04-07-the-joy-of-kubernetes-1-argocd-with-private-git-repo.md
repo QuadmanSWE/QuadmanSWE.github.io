@@ -2,6 +2,7 @@
 title: The Joy of Kubernetes 1 - Argo CD with private git repo
 published: true
 excerpt_separator: <!--more-->
+tags: joy-of-kubernetes kubernetes argocd git 
 ---
 
 # Welcome to the Joy of Kubernetes

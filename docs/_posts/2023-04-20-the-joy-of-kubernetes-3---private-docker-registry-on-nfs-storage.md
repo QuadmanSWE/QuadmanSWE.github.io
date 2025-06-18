@@ -2,6 +2,7 @@
 title: The Joy of Kubernetes 3 - Private Docker registry on NFS storage
 published: true
 excerpt_separator: <!--more-->
+tags: joy-of-kubernetes kubernetes docker nfs argocd
 ---
 
 # Welcome to the Joy of Kubernetes.

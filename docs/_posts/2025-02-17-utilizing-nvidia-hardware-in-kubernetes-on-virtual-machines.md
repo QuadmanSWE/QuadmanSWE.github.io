@@ -2,6 +2,7 @@
 title: Utilizing nvidia hardware in kubernetes built ontop of virtual machines
 published: true
 excerpt_separator: <!--more-->
+tags: proxmox nvidia talos ai kubernetes argocd
 ---
 
 With the advent of large language models, I thought it might be fun to try and get one to run locally and figure out what it would take to run it as a service.
