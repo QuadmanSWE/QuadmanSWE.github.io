@@ -7,7 +7,7 @@ tags: joy-of-kubernetes kubernetes cert-manager letsencrypt google cloud dns cer
 
 # Welcome to the Joy of Kubernetes
 
-If you are new to the series, check out [the previous post](../the-joy-of-kubernetes-1-argocd-with-private-git-repo) about Argo CD if you like, we will leverage Argo CD a bit to deploy what we are doing today. You can just as well replace Argo CD with applying the manifests or helm charts manually.
+If you are new to the series, check out [the previous post](./the-joy-of-kubernetes-1-argocd-with-private-git-repo) about Argo CD if you like, we will leverage Argo CD a bit to deploy what we are doing today. You can just as well replace Argo CD with applying the manifests or helm charts manually.
 
 In this second entry in The Joy of Kubernetes we will take a closer look at the Cert-Manager and it's ClusterIssuer resource. I am interested in requesting and issuing TLS certificates as secrets in kubernetes by just asking nicely, particulary for a real external DNS.
 
@@ -30,7 +30,7 @@ In this second entry in The Joy of Kubernetes we will take a closer look at the 
 ## Prerequisites 🎨
 
 - ~~A canvas, some brushes, and some paint~~  A kubernetes cluster and kubectl.
-- Optional, Argo CD with the application set creation from [the previous post](../the-joy-of-kubernetes-1-argocd-with-private-git-repo).
+- Optional, Argo CD with the application set creation from [the previous post](./the-joy-of-kubernetes-1-argocd-with-private-git-repo).
 - A domain that you control
 - A [supported DNS provider](https://cert-manager.io/docs/configuration/acme/dns01/#supported-dns01-providers)
 

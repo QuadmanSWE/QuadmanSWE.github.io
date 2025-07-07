@@ -504,7 +504,7 @@ And lastly I added some configuration analogous to ingress, with istio being wha
 
 Istio will handle tls termination at the gateway level, if I were to run a service mesh it would do mTLS from there to the pod, but I have no need.
 
-I am reusing a certificate that matches *.mgmt.dsoderlund.consulting which is the hostname that maps to the IP of the istio ingress gateway available on my office network. Check out previous posts on [how I got DNS to work in the office](../2025-01-17-external-dns-with-pi-hole), and [how the istio gateway certificates are generated](../the-joy-of-kubernetes-2-let-us-encrypt).
+I am reusing a certificate that matches *.mgmt.dsoderlund.consulting which is the hostname that maps to the IP of the istio ingress gateway available on my office network. Check out previous posts on [how I got DNS to work in the office](./2025-01-17-external-dns-with-pi-hole), and [how the istio gateway certificates are generated](./the-joy-of-kubernetes-2-let-us-encrypt).
 
 {% highlight yaml %}
 apiVersion: networking.istio.io/v1beta1
