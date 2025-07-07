@@ -9,11 +9,13 @@ All I wanted was to make an elegant way for requesting an external hostname in m
 
 <!--more-->
 
-TODO INSERT PICTURE FROM LINUX LAPTOP HERE OF MY ABOMIATION
+![TODO INSERT PICTURE FROM LINUX LAPTOP HERE OF MY ABOMIATION]()
 
 Once I actually got this to work I took a step back and wondered how did I get here?
 
-https://bsky.app/profile/dsoderlund.consulting/post/3lqv3nf7esc2i
+![rant from bluesky](../assets/2025-07-07_21-27-55-blueskypost.png)
+
+[Picture is from this post](https://bsky.app/profile/dsoderlund.consulting/post/3lqv3nf7esc2i)
 
 ## The problem I want to solve
 
@@ -55,7 +57,7 @@ The public repo I am using for the new fullstack app demonstration is here: http
 
 The template format looks like this.
 
-TODO PICTURE OF BACKSTAGE TEMPLATE GOES HERE
+![TODO PICTURE OF BACKSTAGE TEMPLATE GOES HERE]()
 
 
 Things to highlight:
@@ -65,7 +67,7 @@ Things to highlight:
 
 And the resulting link from backstage to argocd would look like this. Very nice.
 
-Check out the full webinar here: https://www.youtube.com/watch?v=0-5HOpMCTiw
+[Check out the full webinar here](https://www.youtube.com/watch?v=0-5HOpMCTiw)
 
 ## Hostname in backstage template to valid callback URL
 
