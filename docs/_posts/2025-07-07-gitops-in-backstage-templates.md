@@ -5,7 +5,7 @@ excerpt_separator: <!--more-->
 tags: keycloak authz cdk8s argocd backstage crossplane
 ---
 
-Complicating things is fun and sometimes also useful
+Complicating things is fun, and sometimes also useful!
 
 All I wanted was to make an elegant way for requesting an external hostname in my api gateway as part of my ingress abstraction.
 
@@ -33,7 +33,7 @@ Strap yourselves in, this is a journey!
 
 ## Background
 
-So I have worked a lot with templates in backstage as part of my work with the platform. In my interest in being able to let applications and their dependant resources have a shared lifecyle, I have often chosen to use crossplane over terraform so that it all fits together nicely when prototyping and demonstrating ideas.
+Backstage is a platform for building internal developer portals, and I have worked a lot with creating and maintaining templates in backstage. In my interest in being able to let applications and their dependant resources have a shared lifecyle, I have often chosen to use crossplane over terraform for my infrastructure-as-code so that it all fits together nicely when prototyping and demonstrating ideas.
 
 ### Home lab setup
 
@@ -69,7 +69,7 @@ What I expect when it comes to lifecycle management then, is that I can then mak
 
 Lastly I want the structure of my gitops-repo to be add only if possible, that is **I don't want to write code for my templates that make changes to existing files** because then I have leaky abstractions.
 
-The public repo I am using for the new fullstack app demonstration is here: https://github.com/dsoderlund-consulting/demo-gitops
+[The public repo I am using for the new fullstack app demonstration is here](https://github.com/dsoderlund-consulting/demo-gitops)
 
 ### My backstage template
 
@@ -99,11 +99,11 @@ Ok, so we know from our form that the user can request which hostname to use via
 
 Given our initial requirement of a bunch of files with one or more URLs, why not just create a new file for each component in a folder and have those be put together as the configuration for keycloak?
 
-Here is the actual commit from when this template was run in the webinar. https://github.com/dsoderlund-consulting/demo-gitops/commit/96cc61db2e3a6a46d423875e829b9b2d8da07570
+[Here is the actual commit from when this template was run in the webinar.](https://github.com/dsoderlund-consulting/demo-gitops/commit/96cc61db2e3a6a46d423875e829b9b2d8da07570)
 
 This new file demonstrates the way configuration should work.
 
-![](../assets/2025-07-08_10-41-00.png)
+![the new url file](../assets/2025-07-08_10-41-00.png)
 
 ### Enter crossplane
 
