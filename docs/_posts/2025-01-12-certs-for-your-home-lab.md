@@ -27,7 +27,7 @@ In this post I will show you how to use cronjobs in kubernetes to automate the u
 
 ### Tell me, where do certificates come from?
 
-[In a previous post](../the-joy-of-kubernetes-2-let-us-encrypt) we looked at how to use cert-manager to automate the creation of certificates from Let's Encrypt. This is increadibly useful of course to slap on your ingress so that any traffic coming in is encrypted and that the user can trust that they have come to the right place.
+[In a previous post](./the-joy-of-kubernetes-2-let-us-encrypt) we looked at how to use cert-manager to automate the creation of certificates from Let's Encrypt. This is increadibly useful of course to slap on your ingress so that any traffic coming in is encrypted and that the user can trust that they have come to the right place.
 
 But what if you want to use certificates outside of kubernetes, like for servers in your homelab or other equipment in your office?
 
@@ -89,7 +89,7 @@ Pi-hole struck a balance between how simple it was and how poor the existing doc
 
 ### The certificate request
 
-Similar to in [the previous post](../the-joy-of-kubernetes-2-let-us-encrypt), in this cluster I have set up a ClusterIssuer called letsencrypt-prod. Each certificate has this form:
+Similar to in [the previous post](./the-joy-of-kubernetes-2-let-us-encrypt), in this cluster I have set up a ClusterIssuer called letsencrypt-prod. Each certificate has this form:
 
 ``` yaml
 apiVersion: cert-manager.io/v1

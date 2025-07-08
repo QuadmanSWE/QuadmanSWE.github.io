@@ -112,7 +112,7 @@ Content here
 task importImages {
     if ($IsLinux -eq $true) {
         $screenshotdir = Get-Item ~/Pictures
-        $prefixToRemove = 'Screenshot from '
+        $prefixToRemove = 'Screenshot_'
     }
     elseif ($IsWindows -eq $true) {
         $screenshotdir = Get-Item ~/OneDrive/Pictures/Screenshots

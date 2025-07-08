@@ -33,7 +33,7 @@ The goal is to set up a private container registry on our kubernetes cluster usi
 ## Prerequisites 🎨
 
 - ~~A canvas, some brushes, and some paint~~  A kubernetes cluster and kubectl.
-- Optional, Argo CD with the application set creation from [the first post in the series](../the-joy-of-kubernetes-1-argocd-with-private-git-repo).
+- Optional, Argo CD with the application set creation from [the first post in the series](./the-joy-of-kubernetes-1-argocd-with-private-git-repo).
 - The ability to set up NFS storage, or some other storage class
 
 ### Argo CD
@@ -193,7 +193,7 @@ images:
 ```
 
 ## TLS and Ingress: Finishing touches
-I am so happy we have the cert-manager available to us from [the last episode](../2023-04-14-the-joy-of-kubernetes-2---let-us-encrypt.md).
+I am so happy we have the cert-manager available to us from [the last episode](./the-joy-of-kubernetes-2-let-us-encrypt).
 
 This allows us to add highlights to our image container registry with TLS. Rather than ingress annotations we will perform the steps a bit differently today.
 
