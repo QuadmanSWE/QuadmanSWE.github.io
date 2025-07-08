@@ -238,4 +238,4 @@ And once that information makes its way into kubernetes, crossplane will sync it
 
 ## Wrap up
 
-Great, so now I can have my backstage template clone the gitops repo, add the file with the hostname I my application should have, once synched we can surf to that address and be served a working application. Once I grow tired of this app we just remove the file together with the rest of the application configuration and the valid callback urls for the client in keycloak get fewer.
+Great, so now I can have my backstage template clone the gitops repo, add the file with the hostname that my application should have, once synched we can surf to that address and be served a working application. Once I grow tired of this app we just remove the file together with the rest of the application configuration and the valid callback urls for the client in keycloak get fewer.
