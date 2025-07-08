@@ -1,15 +1,17 @@
 ---
-title: Complicating things is fun and sometimes also useful
+title: GitOps in Backstage templates
 published: true
 excerpt_separator: <!--more-->
 tags: keycloak authz cdk8s argocd backstage crossplane
 ---
 
+Complicating things is fun and sometimes also useful
+
 All I wanted was to make an elegant way for requesting an external hostname in my api gateway as part of my ingress abstraction.
 
 <!--more-->
 
-![TODO INSERT PICTURE FROM LINUX LAPTOP HERE OF MY ABOMIATION]()
+![overview of the abomination](../assets/2025-06-05_21-46-00-abomination.png)
 
 Once I actually got this to work I took a step back and wondered how did I get here?
 
@@ -20,6 +22,12 @@ Once I actually got this to work I took a step back and wondered how did I get h
 ## The problem I want to solve
 
 I want to be able to create a new file with one or more URLs. All the files in the folder will together be an array of valid redirect URLs for my oauth2proxy client in keycloak such that external traffic for new apps on those hostnames will be valid for authorization without allowing everything and anything. I want this configuration to be in git to allow gitops work, add new configuration with templates without changing files, and to be able to remove or change a file to update the configuration in keycloak.
+
+This picture illustrates the flow of information when using templates for a new repo with a gitops component in an existing gitops-repo.
+
+![flow of information](../assets/2025-07-08_10-54-26.png)
+
+For a summary of where this "callback url" configuration item fits in my api-gateway. Check out [this old post](./istio-api-gateway-with-keycloak-as-idp)
 
 Strap yourselves in, this is a journey!
 
@@ -37,17 +45,27 @@ Basically traffic can reach my cluster in a couple of different ways. I have two
 
 For the public addresses some are via a cloudflare vpn tunnel, and some are "old school not so secure" port-forwarded via the static public IP from my ISP. Usually this is turned off except when holding an interactive demonstration with others.
 
+For kubernetes the nodes are talos vms virtualized on proxmox.
+
+Everything relevant runs in kubernetes with the exception of my dns (pi-hole), the router (openwrt), and storage (synology-nas).
+
 ### Lifecycle of a fullstack app
 
-In a recent webinar I wanted to demonstrate this lifecycle bundling in a template, such that you would input information about your new app and you would get a new repo, a new deployment, and a registration in the catalog which would then link to everything providing a single pane of glass.
+In a recent webinar I wanted to demonstrate the expections for a developer of their platform, and as part of that lifecycle management of a fullstack app generated with a template. The template should work such that you would input information about your new app and you would get a new repo, a new deployment, and a registration in the catalog which would then link to everything providing a single pane of glass.
 
 ![](../assets/2025-07-07_20-30-27-twelvefactorapp.png)
 
-So when using my "fullstackapp" template what happens is of course that the four different resources get created (frontend, backend, ingress, database).
+So when using this "fullstackapp" template what happens is of course that the four different resources get created (frontend, backend, ingress/virtualservice, database).
+
+The end result from an operations perspective would look like this from the argocd ui.
+
+![argocd view of the four resources](../assets/2025-07-08_10-13-00.png)
+
+[Check out the full webinar here if you want more details](https://www.youtube.com/watch?v=0-5HOpMCTiw)
 
 ### Gitops
 
-What I expect is that I can then make changes or remove those resources from the gitops-repo and the desired state of my infrastructure will be reconciled accordingly.
+What I expect when it comes to lifecycle management then, is that I can then make changes or remove those resources from the gitops-repo and the desired state of my infrastructure will be reconciled accordingly.
 
 Lastly I want the structure of my gitops-repo to be add only if possible, that is **I don't want to write code for my templates that make changes to existing files** because then I have leaky abstractions.
 
@@ -55,9 +73,9 @@ The public repo I am using for the new fullstack app demonstration is here: http
 
 ### My backstage template
 
-The template format looks like this.
+The template summary looks like this when run for a fullstack app called "developersbay".
 
-![TODO PICTURE OF BACKSTAGE TEMPLATE GOES HERE]()
+![backstage template review](../assets/2025-07-08_09-45-08.png)
 
 
 Things to highlight:
@@ -65,19 +83,31 @@ Things to highlight:
 - The database connection details will be injected as environment variables if we tick the database box.
 - Frontend bundle and backend server will both run on the same hostname but backend will use /api prefix.
 
-And the resulting link from backstage to argocd would look like this. Very nice.
+Once the template starts to run you can see logs of what is being done and upon completion you get links to the new component in backstage and the new git repo.
 
-[Check out the full webinar here](https://www.youtube.com/watch?v=0-5HOpMCTiw)
+![template results](../assets/2025-07-08_09-50-15.png)
+
+And the resulting component view in backstage would look like this. Very nice, it has links to builds, and to argocd deployments.
+
+![single pane of glass](../assets/2025-07-08_10-36-48.png)
 
 ## Hostname in backstage template to valid callback URL
 
-Ok, so we know from our form that the user can request which hostname to use.
+Back to implementation details.
+
+Ok, so we know from our form that the user can request which hostname to use via the component name.
 
 Given our initial requirement of a bunch of files with one or more URLs, why not just create a new file for each component in a folder and have those be put together as the configuration for keycloak?
 
+Here is the actual commit from when this template was run in the webinar. https://github.com/dsoderlund-consulting/demo-gitops/commit/96cc61db2e3a6a46d423875e829b9b2d8da07570
+
+This new file demonstrates the way configuration should work.
+
+![](../assets/2025-07-08_10-41-00.png)
+
 ### Enter crossplane
 
-The first issue of course is how do we configure keycloak with gitops? Should we call terraform? [No we are using crossplane here and this excellent provider for keycloak.](https://github.com/crossplane-contrib/provider-keycloak)
+The first issue of course is how do we configure keycloak with gitops? Should we call an API directly with our CD pipeline? Should we use terraform? [No we are using crossplane here and this excellent provider for keycloak.](https://github.com/crossplane-contrib/provider-keycloak)
 
 Next problem, how do we create a nice abstraction of an oidc-client which doesn't require changes to any files?
 
@@ -89,7 +119,7 @@ Again, the point here is that the backstage template will create a new file with
 
 One could conceivably construct a helm chart but at that point you are making things complicated without the fun part which is what this post is all about!
 
-It then dawned on me that I already have the ~~perfect~~ solution from [my post about cdk8s in argocd](./2024-06-06-cdks8s-through-argocd).
+It then dawned on me that I already have the ~~perfect~~ solution from [my post about cdk8s in argocd](./cdks8s-through-argocd).
 
 ### cdk8s
 
@@ -166,6 +196,45 @@ const app = new App();
 new MyChart(app, "oauth2proxy-shared-config");
 app.synth();
 ```
+
+### The abstraction in action
+
+To summarize, the new file with the new hostname was added to the gitops-repo. Once synched with argocd, the cdk8s plugin synthesizes the cdk8s app which resolves the array of URLs for the oauth2proxy client.
+
+
+``` yaml
+apiVersion: openidclient.keycloak.crossplane.io/v1alpha1
+kind: Client
+metadata:
+  annotations:
+    argocd.argoproj.io/tracking-id: >-
+      oauth2proxy-shared-config:openidclient.keycloak.crossplane.io/Client:oauth2proxy/oauth2proxy
+    dsoderlund.consulting/managed-by: crossplane
+    dsoderlund.consulting/rendered-by: cdk8s
+  name: oauth2proxy
+spec:
+  deletionPolicy: Orphan
+  forProvider:
+    accessType: CONFIDENTIAL
+    clientId: oauth2proxy
+    description: >-
+      Generated through cdk8s and applied with crossplane (you can't make
+      changes to this in the keycloak UI, they will be overwritten)
+    import: true
+    realmId: master
+    validRedirectUris:
+      - https://demo.dsoderlund.consulting/oauth2/callback
+      - https://demo2.sam.dsoderlund.consulting/oauth2/callback
+      - https://developersbay.sam.dsoderlund.consulting/oauth2/callback
+  managementPolicies:
+    - '*'
+  providerConfigRef:
+    name: keycloak-config
+```
+
+And once that information makes its way into kubernetes, crossplane will sync it in keycloak and the callback URL for the new application gets registered allowing ingress traffic to be handled by the api gateway.
+
+![client in keycloak](../assets/2025-07-08_10-50-51.png)
 
 ## Wrap up
 
