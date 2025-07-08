@@ -193,7 +193,7 @@ images:
 ```
 
 ## TLS and Ingress: Finishing touches
-I am so happy we have the cert-manager available to us from [the last episode](./2023-04-14-the-joy-of-kubernetes-2---let-us-encrypt.md).
+I am so happy we have the cert-manager available to us from [the last episode](./the-joy-of-kubernetes-2-let-us-encrypt).
 
 This allows us to add highlights to our image container registry with TLS. Rather than ingress annotations we will perform the steps a bit differently today.
 
