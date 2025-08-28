@@ -51,7 +51,7 @@ Everything relevant runs in kubernetes with the exception of my dns (pi-hole), t
 
 ### Lifecycle of a fullstack app
 
-In a recent webinar I wanted to demonstrate the expections for a developer of their platform, and as part of that lifecycle management of a fullstack app generated with a template. The template should work such that you would input information about your new app and you would get a new repo, a new deployment, and a registration in the catalog which would then link to everything providing a single pane of glass.
+In a recent webinar I wanted to demonstrate the expectations for a developer of their platform, and as part of that lifecycle management of a fullstack app generated with a template. The template should work such that you would input information about your new app and you would get a new repo, a new deployment, and a registration in the catalog which would then link to everything providing a single pane of glass.
 
 ![](../assets/2025-07-07_20-30-27-twelvefactorapp.png)
 
