@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+
+  <title>GitOps in Backstage templates</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="alternate" type="application/atom+xml" href="/feed.xml">
+</head>
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    <h1>blog.dsoderlund.consulting</h1>
+    </a>
+    <div class="header-links">
+      <a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>GitOps in Backstage templates</h2>
+  <time datetime="2025-07-07T00:00:00+00:00" class="by-line">07 Jul 2025</time>
+  <p>Complicating things is fun, and sometimes also useful!</p>
+
+<p>All I wanted was to make an elegant way for requesting an external hostname in my api gateway as part of my ingress abstraction.</p>
+
+<!--more-->
+
+<p><img src="../assets/2025-06-05_21-46-00-abomination.png" alt="overview of the abomination"></p>
+
+<p>Once I actually got this to work I took a step back and wondered how did I get here?</p>
+
+<p><img src="../assets/2025-07-07_21-27-55-blueskypost.png" alt="rant from bluesky"></p>
+
+<p><a href="https://bsky.app/profile/dsoderlund.consulting/post/3lqv3nf7esc2i">Picture is from this post</a></p>
+
+<h2 id="the-problem-i-want-to-solve">The problem I want to solve</h2>
+
+<p>I want to be able to create a new file with one or more URLs. All the files in the folder will together be an array of valid redirect URLs for my oauth2proxy client in keycloak such that external traffic for new apps on those hostnames will be valid for authorization without allowing everything and anything. I want this configuration to be in git to allow gitops work, add new configuration with templates without changing files, and to be able to remove or change a file to update the configuration in keycloak.</p>
+
+<p>This picture illustrates the flow of information when using templates for a new repo with a gitops component in an existing gitops-repo.</p>
+
+<p><img src="../assets/2025-07-08_10-54-26.png" alt="flow of information"></p>
+
+<p>For a summary of where this “callback url” configuration item fits in my api-gateway. Check out <a href="./istio-api-gateway-with-keycloak-as-idp">this old post</a></p>
+
+<p>Strap yourselves in, this is a journey!</p>
+
+<h2 id="background">Background</h2>
+
+<p>Backstage is a platform for building internal developer portals, and I have worked a lot with creating and maintaining templates in backstage. In my interest in being able to let applications and their dependant resources have a shared lifecyle, I have often chosen to use crossplane over terraform for my infrastructure-as-code so that it all fits together nicely when prototyping and demonstrating ideas.</p>
+
+<h3 id="home-lab-setup">Home lab setup</h3>
+
+<p>In my homelab I have this setup.</p>
+
+<p><img src="../assets/2025-07-07_20-24-30-homelab-setup.png" alt=""></p>
+
+<p>Basically traffic can reach my cluster in a couple of different ways. I have two different ingress gateways, one bound to hostnames which resolvable and routable externally with public DNS, and one bound to *.mgmt.dsoderlund.consulting which is resolvable and routable locally or with VPN.</p>
+
+<p>For the public addresses some are via a cloudflare vpn tunnel, and some are “old school not so secure” port-forwarded via the static public IP from my ISP. Usually this is turned off except when holding an interactive demonstration with others.</p>
+
+<p>For kubernetes the nodes are talos vms virtualized on proxmox.</p>
+
+<p>Everything relevant runs in kubernetes with the exception of my dns (pi-hole), the router (openwrt), and storage (synology-nas).</p>
+
+<h3 id="lifecycle-of-a-fullstack-app">Lifecycle of a fullstack app</h3>
+
+<p>In a recent webinar I wanted to demonstrate the expectations for a developer of their platform, and as part of that lifecycle management of a fullstack app generated with a template. The template should work such that you would input information about your new app and you would get a new repo, a new deployment, and a registration in the catalog which would then link to everything providing a single pane of glass.</p>
+
+<p><img src="../assets/2025-07-07_20-30-27-twelvefactorapp.png" alt=""></p>
+
+<p>So when using this “fullstackapp” template what happens is of course that the four different resources get created (frontend, backend, ingress/virtualservice, database).</p>
+
+<p>The end result from an operations perspective would look like this from the argocd ui.</p>
+
+<p><img src="../assets/2025-07-08_10-13-00.png" alt="argocd view of the four resources"></p>
+
+<p><a href="https://www.youtube.com/watch?v=0-5HOpMCTiw">Check out the full webinar here if you want more details</a></p>
+
+<h3 id="gitops">Gitops</h3>
+
+<p>What I expect when it comes to lifecycle management then, is that I can then make changes or remove those resources from the gitops-repo and the desired state of my infrastructure will be reconciled accordingly.</p>
+
+<p>Lastly I want the structure of my gitops-repo to be add only if possible, that is <strong>I don’t want to write code for my templates that make changes to existing files</strong> because then I have leaky abstractions.</p>
+
+<p><a href="https://github.com/dsoderlund-consulting/demo-gitops">The public repo I am using for the new fullstack app demonstration is here</a></p>
+
+<h3 id="my-backstage-template">My backstage template</h3>
+
+<p>The template summary looks like this when run for a fullstack app called “developersbay”.</p>
+
+<p><img src="../assets/2025-07-08_09-45-08.png" alt="backstage template review"></p>
+
+<p>Things to highlight:</p>
+<ul>
+  <li>The hostname will be <code class="language-plaintext highlighter-rouge">&lt;componentname&gt;.example.com</code> and an ingress will be created if we tick the ingress box.</li>
+  <li>The database connection details will be injected as environment variables if we tick the database box.</li>
+  <li>Frontend bundle and backend server will both run on the same hostname but backend will use /api prefix.</li>
+</ul>
+
+<p>Once the template starts to run you can see logs of what is being done and upon completion you get links to the new component in backstage and the new git repo.</p>
+
+<p><img src="../assets/2025-07-08_09-50-15.png" alt="template results"></p>
+
+<p>And the resulting component view in backstage would look like this. Very nice, it has links to builds, and to argocd deployments.</p>
+
+<p><img src="../assets/2025-07-08_10-36-48.png" alt="single pane of glass"></p>
+
+<h2 id="hostname-in-backstage-template-to-valid-callback-url">Hostname in backstage template to valid callback URL</h2>
+
+<p>Back to implementation details.</p>
+
+<p>Ok, so we know from our form that the user can request which hostname to use via the component name.</p>
+
+<p>Given our initial requirement of a bunch of files with one or more URLs, why not just create a new file for each component in a folder and have those be put together as the configuration for keycloak?</p>
+
+<p><a href="https://github.com/dsoderlund-consulting/demo-gitops/commit/96cc61db2e3a6a46d423875e829b9b2d8da07570">Here is the actual commit from when this template was run in the webinar.</a></p>
+
+<p>This new file demonstrates the way configuration should work.</p>
+
+<p><img src="../assets/2025-07-08_10-41-00.png" alt="the new url file"></p>
+
+<h3 id="enter-crossplane">Enter crossplane</h3>
+
+<p>The first issue of course is how do we configure keycloak with gitops? Should we call an API directly with our CD pipeline? Should we use terraform? <a href="https://github.com/crossplane-contrib/provider-keycloak">No we are using crossplane here and this excellent provider for keycloak.</a></p>
+
+<p>Next problem, how do we create a nice abstraction of an oidc-client which doesn’t require changes to any files?</p>
+
+<h3 id="content-from-any-number-of-files-should-populate-array-of-a-kubernetes-resource">Content from any number of files should populate array of a kubernetes resource</h3>
+
+<p>My first idea was to use kustomize and splice things together with patches, but it turns out that kustomize doesn’t support globbing or any way I could figure out to go from multiple files whose names are not known without changing the kustomization files into one field in a resource.</p>
+
+<p>Again, the point here is that the backstage template will create a new file with the hostname we want, it shouldn’t have to change any existing files or know any other structure.</p>
+
+<p>One could conceivably construct a helm chart but at that point you are making things complicated without the fun part which is what this post is all about!</p>
+
+<p>It then dawned on me that I already have the <del>perfect</del> solution from <a href="./cdks8s-through-argocd">my post about cdk8s in argocd</a>.</p>
+
+<h3 id="cdk8s">cdk8s</h3>
+
+<p>With cdk8s we can render the resource defintion (yaml or json) that we want argocd to deploy, or in my case I can check it in as is and let my argocd plugin figure it out (less recommended, more fun).</p>
+
+<p>Here is my general idea of something to put into gitops to create the oauth2proxy client configuration I want.</p>
+
+<ol>
+  <li>Import the crossplane keycloak CRD to the new cdk8s folder</li>
+  <li>Write some typescript to read the files in the folder and create an array of strings.</li>
+  <li>Validate each URL with regex</li>
+  <li>Construct the openid client resource.</li>
+</ol>
+
+<p>Again the code is publically available on github if you want to check it out further.</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl get crds openidclient.keycloak.crossplane.io <span class="nt">-o</span> json | cdk8s import /dev/stdin
+</code></pre></div></div>
+
+<div class="language-typescript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">import</span> <span class="p">{</span> <span class="nx">Construct</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">constructs</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">App</span><span class="p">,</span> <span class="nx">Chart</span><span class="p">,</span> <span class="nx">ChartProps</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">cdk8s</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span>
+  <span class="nx">Client</span><span class="p">,</span>
+  <span class="nx">ClientSpecDeletionPolicy</span><span class="p">,</span>
+  <span class="nx">ClientSpecManagementPolicies</span><span class="p">,</span>
+<span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">./imports/openidclient.keycloak.crossplane.io</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="o">*</span> <span class="k">as</span> <span class="nx">path</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">path</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">getValidRedirectUrisFromDnsNames</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">./getValidRedirectUrisFromDnsNames</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="k">export</span> <span class="kd">class</span> <span class="nx">MyChart</span> <span class="kd">extends</span> <span class="nx">Chart</span> <span class="p">{</span>
+  <span class="kd">constructor</span><span class="p">(</span>
+    <span class="nx">scope</span><span class="p">:</span> <span class="nx">Construct</span><span class="p">,</span>
+    <span class="nx">id</span><span class="p">:</span> <span class="kr">string</span><span class="p">,</span>
+    <span class="nx">props</span><span class="p">:</span> <span class="nx">ChartProps</span> <span class="o">=</span> <span class="p">{</span> <span class="na">disableResourceNameHashes</span><span class="p">:</span> <span class="kc">true</span> <span class="p">}</span>
+  <span class="p">)</span> <span class="p">{</span>
+    <span class="k">super</span><span class="p">(</span><span class="nx">scope</span><span class="p">,</span> <span class="nx">id</span><span class="p">,</span> <span class="nx">props</span><span class="p">);</span>
+    <span class="kd">const</span> <span class="nx">allowedDnsNamesFolder</span> <span class="o">=</span> <span class="nx">path</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="nx">__dirname</span><span class="p">,</span> <span class="dl">"</span><span class="s2">allowedDnsNames</span><span class="dl">"</span><span class="p">);</span>
+    <span class="kd">const</span> <span class="nx">dynamicallyGeneratedRedirectUris</span> <span class="o">=</span> <span class="nx">getValidRedirectUrisFromDnsNames</span><span class="p">(</span>
+      <span class="nx">allowedDnsNamesFolder</span>
+    <span class="p">);</span>
+    <span class="k">new</span> <span class="nx">Client</span><span class="p">(</span><span class="k">this</span><span class="p">,</span> <span class="dl">"</span><span class="s2">client</span><span class="dl">"</span><span class="p">,</span> <span class="p">{</span>
+      <span class="na">metadata</span><span class="p">:</span> <span class="p">{</span>
+        <span class="na">name</span><span class="p">:</span> <span class="dl">"</span><span class="s2">oauth2proxy</span><span class="dl">"</span><span class="p">,</span>
+        <span class="na">annotations</span><span class="p">:</span> <span class="p">{</span>
+          <span class="dl">"</span><span class="s2">dsoderlund.consulting/rendered-by</span><span class="dl">"</span><span class="p">:</span> <span class="dl">"</span><span class="s2">cdk8s</span><span class="dl">"</span><span class="p">,</span>
+          <span class="dl">"</span><span class="s2">dsoderlund.consulting/managed-by</span><span class="dl">"</span><span class="p">:</span> <span class="dl">"</span><span class="s2">crossplane</span><span class="dl">"</span><span class="p">,</span>
+        <span class="p">},</span>
+      <span class="p">},</span>
+      <span class="na">spec</span><span class="p">:</span> <span class="p">{</span>
+        <span class="na">providerConfigRef</span><span class="p">:</span> <span class="p">{</span>
+          <span class="na">name</span><span class="p">:</span> <span class="dl">"</span><span class="s2">keycloak-config</span><span class="dl">"</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="na">deletionPolicy</span><span class="p">:</span> <span class="nx">ClientSpecDeletionPolicy</span><span class="p">.</span><span class="nx">ORPHAN</span><span class="p">,</span>
+        <span class="na">managementPolicies</span><span class="p">:</span> <span class="p">[</span><span class="nx">ClientSpecManagementPolicies</span><span class="p">.</span><span class="nx">VALUE_ASTERISK</span><span class="p">],</span>
+        <span class="na">forProvider</span><span class="p">:</span> <span class="p">{</span>
+          <span class="na">import</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+          <span class="na">accessType</span><span class="p">:</span> <span class="dl">"</span><span class="s2">CONFIDENTIAL</span><span class="dl">"</span><span class="p">,</span>
+          <span class="na">clientId</span><span class="p">:</span> <span class="dl">"</span><span class="s2">oauth2proxy</span><span class="dl">"</span><span class="p">,</span>
+          <span class="na">description</span><span class="p">:</span>
+            <span class="dl">"</span><span class="s2">Generated through cdk8s and applied with crossplane (you can't make changes to this in the keycloak UI, they will be overwritten)</span><span class="dl">"</span><span class="p">,</span>
+          <span class="na">realmId</span><span class="p">:</span> <span class="dl">"</span><span class="s2">master</span><span class="dl">"</span><span class="p">,</span>
+          <span class="na">validRedirectUris</span><span class="p">:</span>
+            <span class="nx">dynamicallyGeneratedRedirectUris</span><span class="p">.</span><span class="nx">length</span> <span class="o">&gt;</span> <span class="mi">0</span>
+              <span class="p">?</span> <span class="nx">dynamicallyGeneratedRedirectUris</span>
+              <span class="p">:</span> <span class="kc">undefined</span><span class="p">,</span>
+        <span class="p">},</span>
+      <span class="p">},</span>
+    <span class="p">});</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">const</span> <span class="nx">app</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">App</span><span class="p">();</span>
+<span class="k">new</span> <span class="nx">MyChart</span><span class="p">(</span><span class="nx">app</span><span class="p">,</span> <span class="dl">"</span><span class="s2">oauth2proxy-shared-config</span><span class="dl">"</span><span class="p">);</span>
+<span class="nx">app</span><span class="p">.</span><span class="nx">synth</span><span class="p">();</span>
+</code></pre></div></div>
+
+<h3 id="the-abstraction-in-action">The abstraction in action</h3>
+
+<p>To summarize, the new file with the new hostname was added to the gitops-repo. Once synched with argocd, the cdk8s plugin synthesizes the cdk8s app which resolves the array of URLs for the oauth2proxy client.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">openidclient.keycloak.crossplane.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Client</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="na">argocd.argoproj.io/tracking-id</span><span class="pi">:</span> <span class="pi">&gt;-</span>
+      <span class="s">oauth2proxy-shared-config:openidclient.keycloak.crossplane.io/Client:oauth2proxy/oauth2proxy</span>
+    <span class="na">dsoderlund.consulting/managed-by</span><span class="pi">:</span> <span class="s">crossplane</span>
+    <span class="na">dsoderlund.consulting/rendered-by</span><span class="pi">:</span> <span class="s">cdk8s</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">oauth2proxy</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">deletionPolicy</span><span class="pi">:</span> <span class="s">Orphan</span>
+  <span class="na">forProvider</span><span class="pi">:</span>
+    <span class="na">accessType</span><span class="pi">:</span> <span class="s">CONFIDENTIAL</span>
+    <span class="na">clientId</span><span class="pi">:</span> <span class="s">oauth2proxy</span>
+    <span class="na">description</span><span class="pi">:</span> <span class="pi">&gt;-</span>
+      <span class="s">Generated through cdk8s and applied with crossplane (you can't make</span>
+      <span class="s">changes to this in the keycloak UI, they will be overwritten)</span>
+    <span class="na">import</span><span class="pi">:</span> <span class="no">true</span>
+    <span class="na">realmId</span><span class="pi">:</span> <span class="s">master</span>
+    <span class="na">validRedirectUris</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">https://demo.dsoderlund.consulting/oauth2/callback</span>
+      <span class="pi">-</span> <span class="s">https://demo2.sam.dsoderlund.consulting/oauth2/callback</span>
+      <span class="pi">-</span> <span class="s">https://developersbay.sam.dsoderlund.consulting/oauth2/callback</span>
+  <span class="na">managementPolicies</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s1">'</span><span class="s">*'</span>
+  <span class="na">providerConfigRef</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">keycloak-config</span>
+</code></pre></div></div>
+
+<p>And once that information makes its way into kubernetes, crossplane will sync it in keycloak and the callback URL for the new application gets registered allowing ingress traffic to be handled by the api gateway.</p>
+
+<p><img src="../assets/2025-07-08_10-50-51.png" alt="client in keycloak"></p>
+
+<h2 id="wrap-up">Wrap up</h2>
+
+<p>Great, so now I can have my backstage template clone the gitops repo, add the file with the hostname that my application should have, once synched we can surf to that address and be served a working application. Once I grow tired of this app we just remove the file together with the rest of the application configuration and the valid callback urls for the client in keycloak get fewer.</p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-sa/4.0">
+    <span>
+        <b>David Söderlund</b>
+    </span>
+    
+    <span>© 2025</span>
+  </a>
+</footer>
+
+  
+    <script type="text/javascript">
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+  ga('create', 'UA-263169605-1', 'auto');
+  ga('send', 'pageview');
+</script>
+  
+</body>
+
+</html>

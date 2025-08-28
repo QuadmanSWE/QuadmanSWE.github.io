@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+
+  <title>The Joy of Kubernetes 2 - Let us Encrypt</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="alternate" type="application/atom+xml" href="/feed.xml">
+</head>
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    <h1>blog.dsoderlund.consulting</h1>
+    </a>
+    <div class="header-links">
+      <a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>The Joy of Kubernetes 2 - Let us Encrypt</h2>
+  <time datetime="2023-04-14T00:00:00+00:00" class="by-line">14 Apr 2023</time>
+  <h1 id="welcome-to-the-joy-of-kubernetes">Welcome to the Joy of Kubernetes</h1>
+
+<p>If you are new to the series, check out <a href="./the-joy-of-kubernetes-1-argocd-with-private-git-repo">the previous post</a> about Argo CD if you like, we will leverage Argo CD a bit to deploy what we are doing today. You can just as well replace Argo CD with applying the manifests or helm charts manually.</p>
+
+<p>In this second entry in The Joy of Kubernetes we will take a closer look at the Cert-Manager and it’s ClusterIssuer resource. I am interested in requesting and issuing TLS certificates as secrets in kubernetes by just asking nicely, particulary for a real external DNS.</p>
+
+<!--more-->
+
+<ul>
+  <li>
+<a href="#welcome-to-the-joy-of-kubernetes">Welcome to the Joy of Kubernetes</a>
+    <ul>
+      <li><a href="#prerequisites-">Prerequisites 🎨</a></li>
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#a-little-about-cert-manager">A Little About Cert-Manager</a></li>
+      <li><a href="#clusterissuers-crafting-your-certificates">ClusterIssuers: Crafting Your Certificates</a></li>
+      <li><a href="#lets-encrypt-bringing-your-certificates-to-life">Let’s Encrypt: Bringing Your Certificates to Life</a></li>
+      <li><a href="#google-cloud-dns-the-beautiful-backdrop">Google Cloud DNS: The Beautiful Backdrop</a></li>
+      <li><a href="#automatic-certificate-creation-example">Automatic certificate creation example</a></li>
+      <li><a href="#a-peaceful-summary-the-joy-of-kubernetes-with-cert-manager">A Peaceful Summary: The Joy of Kubernetes with Cert-Manager</a></li>
+      <li>
+<a href="#appendecies">Appendecies</a>
+        <ul>
+          <li><a href="#a---staging-issuers">A - Staging issuers</a></li>
+          <li><a href="#b---appset-changes">B - Appset changes</a></li>
+          <li><a href="#c---cert-manager-and-cluster-issuer-application-specs">C - cert-manager and cluster-issuer application specs</a></li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="prerequisites-">Prerequisites 🎨</h2>
+
+<ul>
+  <li>
+<del>A canvas, some brushes, and some paint</del>  A kubernetes cluster and kubectl.</li>
+  <li>Optional, Argo CD with the application set creation from <a href="./the-joy-of-kubernetes-1-argocd-with-private-git-repo">the previous post</a>.</li>
+  <li>A domain that you control</li>
+  <li>A <a href="https://cert-manager.io/docs/configuration/acme/dns01/#supported-dns01-providers">supported DNS provider</a>
+</li>
+</ul>
+
+<h2 id="overview">Overview</h2>
+
+<p>So glad you could join us for this post about Cert-Manager and Let’s Encrypt.</p>
+
+<p>The basic concept is that by interacting with the API of one of the <a href="https://cert-manager.io/docs/configuration/acme/dns01/#supported-dns01-providers">supported DNS provider</a>, we can get some resource in our cluster to react to the fact that TLS certificates appear to be being required, and issue them by posing an ACME challenge to Let’s Encrypt.</p>
+
+<p>That resource is <a href="https://cert-manager.io/docs/">Cert-Manager</a>.</p>
+
+<p>I’ve gone ahead and prepared a rough sketch for us to follow along to what a flow can look like when adding TLS to an ingress.</p>
+
+<p><img class="mermaid" src="https://mermaid.ink/svg/eyJjb2RlIjoic2VxdWVuY2VEaWFncmFtXG4lJS1cbnBhcnRpY2lwYW50IFVzZXIgYXMgVXNlclxucGFydGljaXBhbnQgSzhzIGFzIEt1YmVybmV0ZXNcbnBhcnRpY2lwYW50IENNIGFzIENlcnQtTWFuYWdlclxucGFydGljaXBhbnQgTEUgYXMgTGV0J3MgRW5jcnlwdFxucGFydGljaXBhbnQgR0NEIGFzIEdvb2dsZSBDbG91ZCBETlNcbnBhcnRpY2lwYW50IFRyYWVmaWsgYXMgSW5ncmVzc1xuJSUtXG5Vc2VyLT4-SzhzOiBSZXF1ZXN0IENlcnRpZmljYXRlXG5LOHMtPj5DTTogQ3JlYXRlIENlcnRpZmljYXRlIHJlc291cmNlXG5DTS0-PkxFOiBSZXF1ZXN0IENlcnRpZmljYXRlXG5MRS0-PkNNOiBDaGFsbGVuZ2UgRE5TLTAxXG5DTS0-PkdDRDogVXBkYXRlIEROUyByZWNvcmRcbkdDRC0-PkxFOiBDb25maXJtIEROUyByZWNvcmRcbkxFLT4-Q006IElzc3VlIENlcnRpZmljYXRlXG5DTS0-Pks4czogU3RvcmUgQ2VydGlmaWNhdGUgYXMgU2VjcmV0XG5LOHMtPj5UcmFlZmlrOiBQcm92aWRlIENlcnRpZmljYXRlXG5UcmFlZmlrLT4-VXNlcjogU2VjdXJlIENvbm5lY3Rpb24gd2l0aCBDZXJ0aWZpY2F0ZVxuJSUtIiwibWVybWFpZCI6eyJ0aGVtZSI6ImRhcmsifX0"></p>
+
+<p>There are a lot of different ways to give the Cert-Manager ceritificate requests beyond the native resource defintion. There are also a lot of things for which you might want to request certificates beyond proving the authenticity of your service to incoming requests and encrypting with TLS.</p>
+
+<p>Read up on the cert-manager documentation for what else you can use it for that fits your needs.</p>
+
+<h2 id="a-little-about-cert-manager">A Little About Cert-Manager</h2>
+
+<p>Let’s start by discussing our main tool: the cert-manager. Picture it as your paintbrush for managing certificates within your Kubernetes clusters. It automates the creation, renewal, and management of TLS certificates, ensuring your applications are secure, just like the snug embrace of a warm, cozy cabin.</p>
+
+<p>To install cert-manager, we’ll need to apply a few custom resources to our cluster. It’s as simple as mixing your favorite colors on your palette:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl apply <span class="nt">-f</span> https://github.com/jetstack/cert-manager/releases/download/v1.11.0/cert-manager.yaml
+</code></pre></div></div>
+
+<p>If painting with helm is your sort of thing, you might want to try this:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>helm repo add jetstack https://charts.jetstack.io
+helm repo update
+helm <span class="nb">install </span>cert-manager jetstack/cert-manager <span class="nt">--namespace</span> cert-manager <span class="nt">--create-namespace</span> <span class="nt">--version</span> v1.11.0 
+</code></pre></div></div>
+
+<p>Now, let’s give it a few moments to get ready, just like letting your paint dry (but not as slow or boring):</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl <span class="nt">-n</span> cert-manager rollout status deploy/cert-manager-webhook
+</code></pre></div></div>
+<p>Once everything is up and running, we’ll have our cert-manager installed and ready to paint our beautiful certificate landscape.</p>
+
+<p>I went ahead and added the helm chart for cert-manager into joy-of-kubernetes-2, and deployed it via Argo CD. The status is more vibrant in the GUI than the pale and grim text output of kubectl.</p>
+
+<h2 id="clusterissuers-crafting-your-certificates">ClusterIssuers: Crafting Your Certificates</h2>
+<p>Now that we have our cert-manager, let’s create a ClusterIssuer. It’s like a delicate tree branch on which our certificates will blossom. With ClusterIssuer, we define where and how our certificates will be issued.</p>
+
+<p>Here’s a lovely example to create a Let’s Encrypt ClusterIssuer:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">cert-manager.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterIssuer</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">letsencrypt-prod</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">acme</span><span class="pi">:</span>
+    <span class="na">email</span><span class="pi">:</span> <span class="s">email@example.com</span>
+    <span class="na">server</span><span class="pi">:</span> <span class="s">https://acme-v02.api.letsencrypt.org/directory</span>
+    <span class="na">privateKeySecretRef</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">letsencrypt-prod</span>
+    <span class="na">solvers</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">dns01</span><span class="pi">:</span>
+        <span class="na">google</span><span class="pi">:</span>
+          <span class="na">project</span><span class="pi">:</span> <span class="s">my-project-id</span>
+          <span class="na">serviceAccountSecretRef</span><span class="pi">:</span>
+            <span class="na">name</span><span class="pi">:</span> <span class="s">clouddns-dns01-solver-svc-acct</span>
+            <span class="na">key</span><span class="pi">:</span> <span class="s">key.json</span>
+</code></pre></div></div>
+<p>This ClusterIssuer configures cert-manager to issue certificates from Let’s Encrypt. Remember to replace email@example.com with your email and my-project-id with your Google Cloud project ID. Save this as letsencrypt-prod.yaml and apply it like a gentle brushstroke:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl apply <span class="nt">-f</span> letsencrypt-prod.yaml
+</code></pre></div></div>
+
+<p>We can now see that things are not really popping out of the canvas just yet, we need to add some high lights in the form of granting our cluster issuer access to manage our DNS records.</p>
+
+<h2 id="lets-encrypt-bringing-your-certificates-to-life">Let’s Encrypt: Bringing Your Certificates to Life</h2>
+<p>Think of Let’s Encrypt as the vibrant colors that bring life to your canvas. It’s a free and open Certificate Authority (CA) that offers a simple way to obtain and renew TLS certificates, ensuring your applications stay secure and bright.</p>
+
+<p>By using Let’s Encrypt with cert-manager, we can automate the issuance and renewal of certificates, making your Kubernetes journey a pleasant and stress-free experience.</p>
+
+<h2 id="google-cloud-dns-the-beautiful-backdrop">Google Cloud DNS: The Beautiful Backdrop</h2>
+<p>Now, let’s create a picturesque backdrop with <em>Google Cloud DNS</em>. This service allows you to manage DNS records with ease, setting the stage for our certificate landscape.</p>
+
+<p>To use Google Cloud DNS with cert-manager, create a service account with the required permissions and generate a key:</p>
+
+<p>For google cloud dns particularly I created a role I called <code class="language-plaintext highlighter-rouge">dns.cert_manager</code> which I made grant the following permissions.</p>
+
+<ul>
+  <li>dns.resourceRecordSets.*</li>
+  <li>dns.changes.*</li>
+  <li>dns.managedZones.list</li>
+</ul>
+
+<p>I could then provision my service account and add this role as so:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">PROJECT_ID</span><span class="o">=</span><span class="s2">"The project id of your world"</span>
+gcloud config <span class="nb">set </span>project <span class="nv">$PROJECT_ID</span>
+gcloud iam service-accounts create dns01-solver <span class="nt">--display-name</span> <span class="s2">"dns01-solver"</span>
+gcloud projects add-iam-policy-binding <span class="nv">$PROJECT_ID</span> <span class="se">\</span>
+   <span class="nt">--member</span> serviceAccount:dns01-solver@<span class="nv">$PROJECT_ID</span>.iam.gserviceaccount.com <span class="se">\</span>
+   <span class="nt">--role</span> projects/<span class="nv">$PROJECT_ID</span>/roles/dns.cert_manager
+</code></pre></div></div>
+
+<p>When using the cloud shell on google cloud, you sometimes need to authorize the use of your login credentials to perform actions.</p>
+
+<p><img src="../assets/2023-04-13-18-30-39.png" alt=""></p>
+
+<p>Once the account is created you need to export the key to be able to close the loop and grant cert-manager’s issuers and clusterissuers the service account credentials via secrets in kubernetes.</p>
+
+<ol>
+  <li>Click Service accounts for your world</li>
+  <li>Click the service account name that you just created and navigate to KEYS</li>
+  <li>Click ADD KEY</li>
+  <li>Select Key type JSON and click CREATE</li>
+</ol>
+
+<p><img src="../assets/2023-04-13-18-36-20.png" alt=""></p>
+
+<p>A file with the key will be automatically downloaded in your browser. This is the content of the secret you need to connect to your cluster issuer. Read about key security and best practices with the link google gives you to make sure that you protect your happy cloud going forward.</p>
+
+<p><img src="../assets/2023-04-13-18-41-11.png" alt=""></p>
+
+<p>I highly recommend that you deploy these secrets ad hoc or with a solution like hashicorp vault or a cloud provided secret manager rather than trying to do it via gitops. If you are set on gitops you can use <em>Sealed Secrets</em> to encrypt the file before adding it to your git repo. Look forward to sealec secrets in a future episode.</p>
+
+<p>Rename the downloaded file so that it matches what the cluster issuer is looking for, then install it inside the same namespace as you put cert-manager. In my case it is joy-of-kubernetes-2</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl create secret generic clouddns-dns01-solver-svc-acct <span class="nt">--from-file</span> gitops/joy-of-kubernetes-2/key.json <span class="nt">--namespace</span> joy-of-kubernetes-2
+</code></pre></div></div>
+
+<h2 id="automatic-certificate-creation-example">Automatic certificate creation example</h2>
+
+<p>Let’s say you wanted to create a happy little application like so:</p>
+
+<p>A deployment for three pods of the echo-server, a simple app that dumps back the entire request back to the client.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">echo-server</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">replicas</span><span class="pi">:</span> <span class="m">3</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">app</span><span class="pi">:</span> <span class="s">echo-server</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">labels</span><span class="pi">:</span>
+        <span class="na">app</span><span class="pi">:</span> <span class="s">echo-server</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">containers</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">echo-server</span>
+          <span class="na">image</span><span class="pi">:</span> <span class="s">ealen/echo-server</span>
+          <span class="na">ports</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="na">containerPort</span><span class="pi">:</span> <span class="m">80</span>
+              <span class="na">name</span><span class="pi">:</span> <span class="s">http</span>
+
+</code></pre></div></div>
+<p>A cluster ip service for service discovery of the pods in the cluster</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Service</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">echo-server</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">app</span><span class="pi">:</span> <span class="s">echo-server</span>
+  <span class="na">ports</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">http</span>
+      <span class="na">port</span><span class="pi">:</span> <span class="m">80</span>
+      <span class="na">targetPort</span><span class="pi">:</span> <span class="s">http</span>
+
+</code></pre></div></div>
+<p>An ingress to allow traffic from outside the cluster reach the cluster ip service</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Ingress</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">echo-server</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">tls</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">hosts</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">echo.k3s.dsoderlund.consulting</span>
+    <span class="na">secretName</span><span class="pi">:</span> <span class="s">echo-tls</span>
+  <span class="na">rules</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">host</span><span class="pi">:</span> <span class="s">echo.k3s.dsoderlund.consulting</span>
+      <span class="na">http</span><span class="pi">:</span>
+        <span class="na">paths</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="na">path</span><span class="pi">:</span> <span class="s">/</span>
+            <span class="na">pathType</span><span class="pi">:</span> <span class="s">ImplementationSpecific</span>
+            <span class="na">backend</span><span class="pi">:</span>
+              <span class="na">service</span><span class="pi">:</span>
+                <span class="na">name</span><span class="pi">:</span> <span class="s">echo-server</span>
+                <span class="na">port</span><span class="pi">:</span>
+                  <span class="na">number</span><span class="pi">:</span> <span class="m">80</span>
+</code></pre></div></div>
+
+<p>Bringing it all home with kustomization.yaml</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kustomize.config.k8s.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Kustomization</span>
+
+<span class="na">resources</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">deployment.yaml</span>
+  <span class="pi">-</span> <span class="s">service.yaml</span>
+  <span class="pi">-</span> <span class="s">ingress.yaml</span>
+
+</code></pre></div></div>
+
+<p>By adding this to our episodes folder in gitops Argo CD can deploy the app automatically on the next sync and we can test it out.</p>
+
+<p><img src="../assets/2023-04-14-01-43-32.png" alt=""></p>
+
+<p>You can notice that I also added the helm chart for cert-manager and the cluster-issuer to my gitops structure. With a few modifications to the application set we created in the last episode we can label the apps by episode. Now I am showing only the apps from episode 2. The updated appset defintion is in <a href="#b---appset-changes">the appendix</a> after the summary.</p>
+
+<p><img src="../assets/2023-04-14-02-01-24.png" alt=""></p>
+
+<p>The thing that would really make the echo-server we painted shine is a real proper certificate, it can be achived by the simple technique of annotating your ingress with the issuer or cluster-issuer to use.</p>
+
+<p>Notice how when I commited this annotation for the ingress</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="na">cert-manager.io/cluster-issuer</span><span class="pi">:</span> <span class="s2">"</span><span class="s">letsencrypt-prod"</span>
+</code></pre></div></div>
+
+<p>Argo CD will automatically draw for me the most wonderful chain of resource creation that happened in the cluster, just like that.</p>
+
+<p><img src="../assets/2023-04-14-01-35-42.png" alt=""></p>
+
+<p>You can click the link on the ingress in Argo CD and be brought to the URL, notice the TLS certificate in a thalo green. Just beautiful.</p>
+
+<p><img src="../assets/2023-04-14-01-38-59.png" alt=""></p>
+
+<h2 id="a-peaceful-summary-the-joy-of-kubernetes-with-cert-manager">A Peaceful Summary: The Joy of Kubernetes with Cert-Manager</h2>
+
+<p>In today’s delightful journey, we explored the soothing world of Kubernetes certificate management. We began by introducing the cert-manager, our trusty paintbrush, which automates the creation, renewal, and management of TLS certificates. We then looked at ClusterIssuers, the delicate branches upon which our certificates will flourish, allowing us to define where and how our certificates are issued.</p>
+
+<p>We also discussed Let’s Encrypt, the vibrant colors bringing life to our masterpiece, offering free and open Certificate Authority services to keep our applications secure. Finally, we set the stage with the picturesque backdrop of Google Cloud DNS, managing our DNS records effortlessly as shown in the Ingress example.</p>
+
+<p>Together, these components harmoniously create a serene and efficient certificate management experience, reminiscent of the calming charm of Bob Ross’s “The Joy of Painting”. Happy cert-managing, and remember: we don’t make mistakes, just happy little accidents!</p>
+
+<h2 id="appendecies">Appendecies</h2>
+
+<h3 id="a---staging-issuers">A - Staging issuers</h3>
+
+<p>The staging issuer allows for a higher rate of certificate creation from Let’s Encrypt, but they aren’t trusted. It is very useful for experimenting with certificate creation without exhauting the generous limitation that Let’s Encrypt grants us.</p>
+
+<p>The only difference between the two defintions is that I changed out the spec.acme.server to <code class="language-plaintext highlighter-rouge">server: https://acme-staging-v02.api.letsencrypt.org/directory</code>. Pretty sneaky huh?</p>
+
+<p><img src="../assets/2023-04-14-01-52-15.png" alt=""></p>
+
+<h3 id="b---appset-changes">B - Appset changes</h3>
+
+<p>I change the appset defintion like so to reflect that I want to use the episode folder as namespace, but there might be more than one app:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">argoproj.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ApplicationSet</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">root-appset</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">argocd</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">generators</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">git</span><span class="pi">:</span>
+      <span class="na">repoURL</span><span class="pi">:</span> <span class="s">ssh://ds@nas/volume1/homes/ds/git/joy-of-kubernetes.git</span>
+      <span class="na">revision</span><span class="pi">:</span> <span class="s">HEAD</span>
+      <span class="na">directories</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">path</span><span class="pi">:</span> <span class="s">gitops/joy-of-kubernetes-1</span>
+        <span class="pi">-</span> <span class="na">path</span><span class="pi">:</span> <span class="s">gitops/joy-of-kubernetes-2/*</span>
+
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s1">'</span><span class="s">{{path.basename}}'</span>
+      <span class="na">labels</span><span class="pi">:</span>
+        <span class="na">app</span><span class="pi">:</span> <span class="s2">"</span><span class="s">{{path.basename}}"</span>
+        <span class="na">appSet</span><span class="pi">:</span> <span class="s2">"</span><span class="s">root-appset"</span>
+        <span class="na">episode</span><span class="pi">:</span> <span class="s2">"</span><span class="s">{{path[1]}}"</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">project</span><span class="pi">:</span> <span class="s">default</span>
+      <span class="na">source</span><span class="pi">:</span>
+        <span class="na">repoURL</span><span class="pi">:</span> <span class="s">ssh://ds@nas/volume1/homes/ds/git/joy-of-kubernetes.git</span>
+        <span class="na">targetRevision</span><span class="pi">:</span> <span class="s">HEAD</span>
+        <span class="na">path</span><span class="pi">:</span> <span class="s1">'</span><span class="s">{{path}}'</span>
+      <span class="na">destination</span><span class="pi">:</span>
+        <span class="na">server</span><span class="pi">:</span> <span class="s">https://kubernetes.default.svc</span>
+        <span class="na">namespace</span><span class="pi">:</span> <span class="s1">'</span><span class="s">{{path[1]}}'</span>
+      <span class="na">syncPolicy</span><span class="pi">:</span>
+        <span class="na">automated</span><span class="pi">:</span>
+          <span class="na">selfHeal</span><span class="pi">:</span> <span class="no">false</span>
+        <span class="na">syncOptions</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s">CreateNamespace=true</span>
+        <span class="pi">-</span> <span class="s">ApplyOutOfSyncOnly=true</span>
+
+</code></pre></div></div>
+
+<h3 id="c---cert-manager-and-cluster-issuer-application-specs">C - cert-manager and cluster-issuer application specs</h3>
+
+<p>As eluded to in the post, I added cert-manager and cluster-issuer to gitops instead of just deploying them as the short and simple examples I gave.</p>
+
+<p>If you are painting along at home for the long run, you can finish your masterpiece with these defintions in gitops/joy-of-kubernetes-2.</p>
+
+<p><code class="language-plaintext highlighter-rouge">gitops\joy-of-kubernetes-2\cert-manager\Chart.yaml</code></p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v2</span>
+<span class="na">name</span><span class="pi">:</span> <span class="s">cert-manager</span>
+<span class="na">type</span><span class="pi">:</span> <span class="s">application</span>
+<span class="na">version</span><span class="pi">:</span> <span class="s">0.1.0</span>
+<span class="na">appVersion</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1.0"</span>
+</code></pre></div></div>
+<p><code class="language-plaintext highlighter-rouge">gitops\joy-of-kubernetes-2\cert-manager\requirements.yaml</code></p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">dependencies</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">cert-manager</span>
+  <span class="na">version</span><span class="pi">:</span> <span class="s">v1.10.1</span>
+  <span class="na">repository</span><span class="pi">:</span> <span class="s">https://charts.jetstack.io</span>
+</code></pre></div></div>
+<p><code class="language-plaintext highlighter-rouge">gitops\joy-of-kubernetes-2\cert-manager\values.yaml</code></p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">cert-manager</span><span class="pi">:</span>
+  <span class="na">installCRDs</span><span class="pi">:</span> <span class="no">true</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">gitops\joy-of-kubernetes-2\cluster-issuer\letsencrypt-prod.yaml</code></p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">cert-manager.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterIssuer</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">letsencrypt-prod</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">acme</span><span class="pi">:</span>
+    <span class="na">email</span><span class="pi">:</span> <span class="s">email@example.com</span>
+    <span class="na">server</span><span class="pi">:</span> <span class="s">https://acme-v02.api.letsencrypt.org/directory</span>
+    <span class="na">privateKeySecretRef</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">letsencrypt-prod</span>
+    <span class="na">solvers</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">dns01</span><span class="pi">:</span>
+        <span class="na">google</span><span class="pi">:</span>
+          <span class="na">project</span><span class="pi">:</span> <span class="s">my-project-id</span>
+          <span class="na">serviceAccountSecretRef</span><span class="pi">:</span>
+            <span class="na">name</span><span class="pi">:</span> <span class="s">clouddns-dns01-solver-svc-acct</span>
+            <span class="na">key</span><span class="pi">:</span> <span class="s">key.json</span>
+</code></pre></div></div>
+<p><code class="language-plaintext highlighter-rouge">gitops\joy-of-kubernetes-2\cluster-issuer\letsencrypt-staging.yaml</code></p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">cert-manager.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterIssuer</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">letsencrypt-staging</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">acme</span><span class="pi">:</span>
+    <span class="na">email</span><span class="pi">:</span> <span class="s">email@example.com</span>
+    <span class="na">server</span><span class="pi">:</span> <span class="s">https://acme-staging-v02.api.letsencrypt.org/directory</span>
+    <span class="na">privateKeySecretRef</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">letsencrypt-staging</span>
+    <span class="na">solvers</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">dns01</span><span class="pi">:</span>
+        <span class="na">google</span><span class="pi">:</span>
+          <span class="na">project</span><span class="pi">:</span> <span class="s">my-project-id</span>
+          <span class="na">serviceAccountSecretRef</span><span class="pi">:</span>
+            <span class="na">name</span><span class="pi">:</span> <span class="s">clouddns-dns01-solver-svc-acct</span>
+            <span class="na">key</span><span class="pi">:</span> <span class="s">key.json</span>
+</code></pre></div></div>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-sa/4.0">
+    <span>
+        <b>David Söderlund</b>
+    </span>
+    
+    <span>© 2025</span>
+  </a>
+</footer>
+
+  
+    <script type="text/javascript">
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+  ga('create', 'UA-263169605-1', 'auto');
+  ga('send', 'pageview');
+</script>
+  
+</body>
+
+</html>
