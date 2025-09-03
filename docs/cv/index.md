@@ -37,10 +37,23 @@ I frequent tech meetups, and am an occasional speaker.
 * NodeJS
 * React
 
+## Home lab
+### Everything manager
+`july 2024 - present`
+
+In a challenge to myself to incorporate everything I have learned since my
+journey into Kubernetes began, I set up a new environment from scratch in
+my home office.
+This environment is used as a base when either doing a demo or introducing
+someone in my network to one or more of the involved technologies. Of note is compiling and installing my custom CSI driver, and building backstage templates that weave together crossplane with gitops for applications and their api gateway configuration.
+
+The homelab incorporates the following technologies:
+Proxmox, Talos, Kubernetes, ArgoCD, git, GitHub, Backstage, cert-manager, Keycloak, oauth2-proxy, Istio, Crossplane, pi-hole, synology NAS, openwrt and wireguard.
+
 ## Shopspray
 ### DevOps
 
-`October 2024`
+`October 2024 and May 2025`
 
 I made CI/CD pipelines in Azure for Shopsprays punchout solution and then built infrastructure for some of their new offerings. I was then consulted on how to get a viable identity and access management solution in place and set up and handed over a working keycloak with multi tenancy and self service single sign on for their customers to use.
 
