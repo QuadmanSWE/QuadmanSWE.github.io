@@ -152,7 +152,7 @@ spec:
 
 While learning about cdk8s I was surprised to learn that it didn't work out of the box with ArgoCD, and that I couldn't find any pre-made plugins.
 
-I did however come across [this great post about cdk8s by Max Brenner](https://shipit.dev/posts/integrating-cdk8s-with-ArgoCD.html) and also [their repository on how to run cdk8s in a container](https://github.com/brennerm/cdk8s-docker).
+I did however come across [this great post about cdk8s by Max Brenner](https://shipit.dev/posts/integrating-cdk8s-with-argocd.html) and also [their repository on how to run cdk8s in a container](https://github.com/brennerm/cdk8s-docker).
 
 ### Dockerfile
 
