@@ -1,5 +1,5 @@
 ---
-title: cdks8s through ArgoCD
+title: cdk8s through ArgoCD
 published: true
 excerpt: |
  cdk8s is a tool from AWS to be able to deal with kubernetes manifests in an imperative way which for a lot of people accelerates their investment in learning about and using kubernetes. Though not perhaps inline with the declarative nature of traditional gitops approaches, it is not really that different from jsonnet, helm and/or kustomize which I think simplifies a lot in terms of expressing not only what we want deployed but also how to best manage changes to that state.
