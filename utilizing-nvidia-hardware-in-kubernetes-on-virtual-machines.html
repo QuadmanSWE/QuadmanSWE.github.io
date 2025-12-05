@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+
+  <title>Utilizing nvidia hardware in kubernetes built ontop of virtual machines</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="alternate" type="application/atom+xml" href="/feed.xml">
+</head>
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    <h1>blog.dsoderlund.consulting</h1>
+    </a>
+    <div class="header-links">
+      <a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Utilizing nvidia hardware in kubernetes built ontop of virtual machines</h2>
+  <time datetime="2025-02-17T00:00:00+00:00" class="by-line">17 Feb 2025</time>
+  <p>With the advent of large language models, I thought it might be fun to try and get one to run locally and figure out what it would take to run it as a service.</p>
+
+<!--more-->
+
+<ul>
+  <li><a href="#the-plan">The plan</a></li>
+  <li><a href="#the-end-results">The end results</a></li>
+  <li>
+<a href="#step-by-step">Step by step</a>
+    <ul>
+      <li><a href="#step-1---ollama-locally-on-windows">Step 1 - Ollama locally on Windows</a></li>
+      <li>
+<a href="#step-2---get-a-graphics-card-available-to-workloads-running-on-kubernetes">Step 2 - Get a graphics card available to workloads running on kubernetes.</a>
+        <ul>
+          <li><a href="#verifying-iommu-groups">Verifying IOMMU groups</a></li>
+          <li><a href="#trying-it-out-with-ubuntu">Trying it out with Ubuntu</a></li>
+          <li><a href="#getting-everything-set-up-for-talos">Getting everything set up for talos</a></li>
+          <li><a href="#kubernetes-configuration">Kubernetes configuration</a></li>
+        </ul>
+      </li>
+      <li>
+<a href="#step-3---running-ollama-and-open-webui-on-kubernetes">Step 3 - running ollama and open webui on kubernetes</a>
+        <ul>
+          <li><a href="#backend-ollama">backend (Ollama)</a></li>
+          <li><a href="#frontend-open-webui">Frontend (open webui)</a></li>
+          <li><a href="#final-deployment-in-argocd">Final deployment in argocd</a></li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="the-plan">The plan</h2>
+
+<p>After having gotten an LLM to run locally on Windows 11 and then querying it with open webui, I would like to replicate the setup on kubernetes.</p>
+
+<p>I started reading wikis, blogs, watched youtube videos, and came up with a rough idea of the steps involved and what I needed to do to execute them.</p>
+
+<p>For reference my kubernetes cluster consists of a handful of Virtual Machines running Talos Linux, all running on top of one physical machine running Proxmox.</p>
+
+<p>In broad strokes I would nee to</p>
+
+<ol>
+  <li>Get the GPU to run in a VM
+a. Configure the hypervisor to be able to passthrough the GPU
+b. Create an Ubuntu VM and install nvidia drivers
+c. Install docker in the VM and run nvidka-smi to verify</li>
+  <li>Clone an additional talos VM for my cluster and attach the GPU to it.
+a. Prepare the talos image of the gpu node to include the required drivers
+b. Update my management repo of talos to cater to an third type of node (control, worker, gpu)
+c. Set up node labels, tains, and any other configurations pertaining to gpu nodes</li>
+  <li>Make the GPU available in kubernetes
+a. Install nvidia device plugin
+b. Create runtime class
+c. Test out tolerations against gpu taints</li>
+  <li>Schedule ollama on the gpu node and configure open webui as a front end.</li>
+</ol>
+
+<h2 id="the-end-results">The end results</h2>
+
+<p>Look at that, all in a couple of weeks hard trial and error.</p>
+
+<p>What I dubbed my SQL Genie is now explaining columnstore indexes in SQL Server to me.</p>
+
+<p><img src="../assets/2025-02-17-15-34-51-chatting-with-sqlgenie.png" alt="chatting with sqlgenie in browser"></p>
+
+<h2 id="step-by-step">Step by step</h2>
+
+<p>Ok so how did this actually happen.</p>
+
+<h3 id="step-1---ollama-locally-on-windows">Step 1 - Ollama locally on Windows</h3>
+
+<p>First thing is first, how do we run ollama locally?</p>
+
+<p>Make sure you have working drivers for your graphics card, then install ollama from <a href="https://ollama.com/download/windows">their site</a>.</p>
+
+<p>I got it running fine using <a href="https://scoop.sh/">scoop</a>.</p>
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">scoop</span><span class="w"> </span><span class="nx">install</span><span class="w"> </span><span class="nx">ollama</span><span class="w">
+</span></code></pre></div></div>
+
+<p>Start ollama. You could get it to run as a service on windows with <a href="https://nssm.cc">nssm</a>.</p>
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ollama</span><span class="w"> </span><span class="nx">serve</span><span class="w">
+</span></code></pre></div></div>
+
+<p>Set up the model you want to try out with ollama run. This will start a prompt to it and it will also make the model available for ollama.
+If you want to make a model available without interacting directly through the shell use <code class="language-plaintext highlighter-rouge">ollama pull</code></p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ollama</span><span class="w"> </span><span class="nx">pull</span><span class="w"> </span><span class="nx">deepseek-r1:14b</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="../assets/2025-03-22-125730-ollama-windows.png" alt="ollama interaction from powershell prompt"></p>
+
+<p>I chose to interact with it with open webui because it is available on docker hub and that translates nicely into the kubernetes setup.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">docker</span><span class="w"> </span><span class="nx">run</span><span class="w"> </span><span class="nt">-d</span><span class="w"> </span><span class="nt">-p</span><span class="w"> </span><span class="nx">3000:8080</span><span class="w"> </span><span class="nt">--add-host</span><span class="o">=</span><span class="n">host.docker.internal:host-gateway</span><span class="w"> </span><span class="nt">-v</span><span class="w"> </span><span class="nx">open-webui:/app/backend/data</span><span class="w"> </span><span class="nt">--name</span><span class="w"> </span><span class="nx">open-webui</span><span class="w"> </span><span class="nt">--restart</span><span class="w"> </span><span class="nx">always</span><span class="w"> </span><span class="nx">ghcr.io/open-webui/open-webui:main</span><span class="w">
+</span></code></pre></div></div>
+
+<p>Ok that was easy.</p>
+
+<p><img src="../assets/2025-03-22-130423-openwebui-windows.png" alt="openwebui in firefox showing ollama interaction"></p>
+
+<h3 id="step-2---get-a-graphics-card-available-to-workloads-running-on-kubernetes">Step 2 - Get a graphics card available to workloads running on kubernetes.</h3>
+
+<p>Proxmox is the hypervisor that I dual boot into besides Windows 11 on my system.</p>
+
+<p>There are a bunch of different guides and troubleshooting guides which I used. <a href="https://pve.proxmox.com/wiki/PCI_Passthrough">At the center stood the wiki entry from the proxmox community</a>.</p>
+
+<p>In essence the goal is to make sure that the gpu hardware can be mounted and utilized as if it was native to the virtualized operating system.</p>
+
+<p>This comes with a bunch of challenges such as making sure the host operating system (proxmox) doesn’t use the graphics card in any way itself.</p>
+
+<p>Let’s skip over all of the painstaking device configuration and near death experience trying to restore functionality to Windows 11 again after tinkering with iommu and blacklisting devices and disconnecting cables.</p>
+
+<h4 id="verifying-iommu-groups">Verifying IOMMU groups</h4>
+
+<p>After getting everything restored and then configured in the right order I can verify that the device is availble and in its own iommu group.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># uses lspci to display every pci bus and their corresponding devices</span>
+<span class="nb">cat</span> /proc/cmdline<span class="p">;</span> <span class="k">for </span>d <span class="k">in</span> /sys/kernel/iommu_groups/<span class="k">*</span>/devices/<span class="k">*</span><span class="p">;</span> <span class="k">do </span><span class="nv">n</span><span class="o">=</span><span class="k">${</span><span class="nv">d</span><span class="p">#*/iommu_groups/*</span><span class="k">}</span><span class="p">;</span> <span class="nv">n</span><span class="o">=</span><span class="k">${</span><span class="nv">n</span><span class="p">%%/*</span><span class="k">}</span><span class="p">;</span> <span class="nb">printf</span> <span class="s1">'IOMMU groups %s '</span> <span class="s2">"</span><span class="nv">$n</span><span class="s2">"</span><span class="p">;</span> lspci <span class="nt">-nns</span> <span class="s2">"</span><span class="k">${</span><span class="nv">d</span><span class="p">##*/</span><span class="k">}</span><span class="s2">"</span><span class="p">;</span> <span class="k">done</span>
+
+</code></pre></div></div>
+
+<p>As we can see the nvidia device is in IOMMU group <code class="language-plaintext highlighter-rouge">12</code>, and has deviceid <code class="language-plaintext highlighter-rouge">01:00</code></p>
+
+<figure class="highlight"><pre><code class="language-text" data-lang="text">IOMMU groups 0 00:01.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Device [1022:14da]
+IOMMU groups 10 00:14.0 SMBus [0c05]: Advanced Micro Devices, Inc. [AMD] FCH SMBus Controller [1022:790b] (rev 71)
+IOMMU groups 10 00:14.3 ISA bridge [0601]: Advanced Micro Devices, Inc. [AMD] FCH LPC Bridge [1022:790e] (rev 51)
+IOMMU groups 11 00:18.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Device [1022:14e0]
+IOMMU groups 11 00:18.1 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Device [1022:14e1]
+IOMMU groups 11 00:18.2 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Device [1022:14e2]
+IOMMU groups 11 00:18.3 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Device [1022:14e3]
+IOMMU groups 11 00:18.4 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Device [1022:14e4]
+IOMMU groups 11 00:18.5 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Device [1022:14e5]
+IOMMU groups 11 00:18.6 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Device [1022:14e6]
+IOMMU groups 11 00:18.7 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Device [1022:14e7]
+<span class="hll">IOMMU groups 12 01:00.0 VGA compatible controller [0300]: NVIDIA Corporation AD103 [GeForce RTX 4080] [10de:2704] (rev a1)
+</span><span class="hll">IOMMU groups 12 01:00.1 Audio device [0403]: NVIDIA Corporation Device [10de:22bb] (rev a1)
+</span>IOMMU groups 13 02:00.0 Non-Volatile memory controller [0108]: Micron/Crucial Technology T700 NVMe PCIe SSD [c0a9:5419]
+IOMMU groups 14 03:00.0 PCI bridge [0604]: Advanced Micro Devices, Inc. [AMD] 600 Series Chipset PCIe Switch Upstream Port [1022:43f4] (rev 01)
+IOMMU groups 15 04:00.0 PCI bridge [0604]: Advanced Micro Devices, Inc. [AMD] 600 Series Chipset PCIe Switch Downstream Port [1022:43f5] (rev 01)
+IOMMU groups 16 04:08.0 PCI bridge [0604]: Advanced Micro Devices, Inc. [AMD] 600 Series Chipset PCIe Switch Downstream Port [1022:43f5] (rev 01)
+IOMMU groups 17 04:09.0 PCI bridge [0604]: Advanced Micro Devices, Inc. [AMD] 600 Series Chipset PCIe Switch Downstream Port [1022:43f5] (rev 01)
+IOMMU groups 18 04:0a.0 PCI bridge [0604]: Advanced Micro Devices, Inc. [AMD] 600 Series Chipset PCIe Switch Downstream Port [1022:43f5] (rev 01)
+IOMMU groups 18 08:00.0 Ethernet controller [0200]: Intel Corporation Ethernet Controller I225-V [8086:15f3] (rev 03)
+IOMMU groups 19 04:0b.0 PCI bridge [0604]: Advanced Micro Devices, Inc. [AMD] 600 Series Chipset PCIe Switch Downstream Port [1022:43f5] (rev 01)
+IOMMU groups 19 09:00.0 Network controller [0280]: MEDIATEK Corp. MT7921K (RZ608) Wi-Fi 6E 80MHz [14c3:0608]
+IOMMU groups 1 00:01.1 PCI bridge [0604]: Advanced Micro Devices, Inc. [AMD] Device [1022:14db]
+IOMMU groups 20 04:0c.0 PCI bridge [0604]: Advanced Micro Devices, Inc. [AMD] 600 Series Chipset PCIe Switch Downstream Port [1022:43f5] (rev 01)
+IOMMU groups 20 0a:00.0 USB controller [0c03]: Advanced Micro Devices, Inc. [AMD] 600 Series Chipset USB 3.2 Controller [1022:43f7] (rev 01)
+IOMMU groups 21 04:0d.0 PCI bridge [0604]: Advanced Micro Devices, Inc. [AMD] 600 Series Chipset PCIe Switch Downstream Port [1022:43f5] (rev 01)
+IOMMU groups 21 0b:00.0 SATA controller [0106]: Advanced Micro Devices, Inc. [AMD] 600 Series Chipset SATA Controller [1022:43f6] (rev 01)
+IOMMU groups 22 0c:00.0 VGA compatible controller [0300]: Advanced Micro Devices, Inc. [AMD/ATI] Raphael [1002:164e] (rev c9)
+IOMMU groups 23 0c:00.1 Audio device [0403]: Advanced Micro Devices, Inc. [AMD/ATI] Rembrandt Radeon High Definition Audio Controller [1002:1640]
+IOMMU groups 24 0c:00.2 Encryption controller [1080]: Advanced Micro Devices, Inc. [AMD] VanGogh PSP/CCP [1022:1649]
+IOMMU groups 25 0c:00.3 USB controller [0c03]: Advanced Micro Devices, Inc. [AMD] Device [1022:15b6]
+IOMMU groups 26 0c:00.4 USB controller [0c03]: Advanced Micro Devices, Inc. [AMD] Device [1022:15b7]
+IOMMU groups 27 0d:00.0 USB controller [0c03]: Advanced Micro Devices, Inc. [AMD] Device [1022:15b8]
+IOMMU groups 2 00:01.2 PCI bridge [0604]: Advanced Micro Devices, Inc. [AMD] Device [1022:14db]
+IOMMU groups 3 00:02.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Device [1022:14da]
+IOMMU groups 4 00:02.1 PCI bridge [0604]: Advanced Micro Devices, Inc. [AMD] Device [1022:14db]
+IOMMU groups 5 00:03.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Device [1022:14da]
+IOMMU groups 6 00:04.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Device [1022:14da]
+IOMMU groups 7 00:08.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Device [1022:14da]
+IOMMU groups 8 00:08.1 PCI bridge [0604]: Advanced Micro Devices, Inc. [AMD] Device [1022:14dd]
+IOMMU groups 9 00:08.3 PCI bridge [0604]: Advanced Micro Devices, Inc. [AMD] Device [1022:14dd]</code></pre></figure>
+
+<h4 id="trying-it-out-with-ubuntu">Trying it out with Ubuntu</h4>
+
+<p>I created a new VM from scratch with a ubuntu live server image.</p>
+
+<p>On the hardware page I can now safely attach the pci device for my graphics card (though it can of course only be used by one running VM at a time).</p>
+
+<p><img src="../assets/2025-02-17-14-57-27-pci-device-1.png" alt="proxmox gui finding pci device in a menu"></p>
+
+<p><img src="../assets/2025-02-17-14-58-00-pci-device-2.png" alt="proxmox gui adding pci device to a vm"></p>
+
+<p>After the guided installation of Ubuntu I rebooted and installed docker and the appropriate drivers following the examples from nvidia together with their container toolkit. <a href="https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html">Full guide on their site</a>.</p>
+
+<p>With that I could run a container on the VM which could use the gpu passed through from proxmox.</p>
+
+<p><img src="../assets/2025-02-07-17-16-12-nvidia-smi-in-ubuntu-docker.png" alt="nvidia smi docker container output from an ubuntu vm shell"></p>
+
+<h4 id="getting-everything-set-up-for-talos">Getting everything set up for talos</h4>
+
+<p>Talos is the linux distro on top of which I choose to run kubernetes.</p>
+
+<p><a href="https://factory.talos.dev/?arch=amd64&board=undefined&cmdline-set=true&extensions=-&extensions=siderolabs%2Fbtrfs&extensions=siderolabs%2Fiscsi-tools&extensions=siderolabs%2Fnvidia-container-toolkit-production&extensions=siderolabs%2Fnvidia-open-gpu-kernel-modules-production&extensions=siderolabs%2Fqemu-guest-agent&platform=metal&secureboot=undefined&target=metal&version=1.9.3">Here is the talos image I configured for the gpu node</a></p>
+
+<p>I added extensions according to the <a href="https://www.talos.dev/v1.9/talos-guides/configuration/nvidia-gpu-proprietary/">guide on the talos site</a>.</p>
+
+<p>I configured the node using an existing worker configuration to join the cluster, and I added some patches to get modules, node labels, and the correct talos image to run.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">PS</span><span class="w"> </span><span class="nx">/home/dsoderlund/repos/talos</span><span class="err">&gt;</span><span class="w"> </span><span class="nx">talosctl</span><span class="w"> </span><span class="nx">apply-config</span><span class="w"> </span><span class="nt">--nodes</span><span class="w"> </span><span class="nx">mgmt-gpu-1</span><span class="w"> </span><span class="nt">--file</span><span class="w"> </span><span class="nx">_out/worker.yaml</span><span class="w"> </span><span class="nt">--config-patch</span><span class="w"> </span><span class="err">@</span><span class="nx">node-patches/gpu/labels.yaml</span><span class="w"> </span><span class="nt">--config-patch</span><span class="w"> </span><span class="err">@</span><span class="nx">node-patches/gpu/nvidia.yaml</span><span class="w"> </span><span class="nt">--config-patch</span><span class="w"> </span><span class="err">@</span><span class="nx">node-patches/gpu/version.yaml</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># labels.yaml</span>
+<span class="na">machine</span><span class="pi">:</span>
+  <span class="na">nodeLabels</span><span class="pi">:</span>
+    <span class="na">has.nvidia.gpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+</code></pre></div></div>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># nvidia.yaml</span>
+<span class="na">machine</span><span class="pi">:</span>
+  <span class="na">kernel</span><span class="pi">:</span>
+    <span class="na">modules</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">nvidia</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">nvidia_uvm</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">nvidia_drm</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">nvidia_modeset</span>
+  <span class="na">sysctls</span><span class="pi">:</span>
+    <span class="na">net.core.bpf_jit_harden</span><span class="pi">:</span> <span class="m">1</span>
+</code></pre></div></div>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># version.yaml</span>
+<span class="na">machine</span><span class="pi">:</span>
+  <span class="na">install</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">factory.talos.dev/installer/99453fb462d1cc3043a71d3fb47b66e8a48b8a22f01c0af5df80a570f6d96d0f:v1.9.3</span>
+</code></pre></div></div>
+
+<p>Lastly I made sure the node in kubernetes got the correct role and taints to avoid running any other workload on it than that specifically requireing the nvidia runtime.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">PS</span><span class="w"> </span><span class="nx">/home/dsoderlund/repos/talos</span><span class="err">&gt;</span><span class="w"> </span><span class="nv">$mgmtVMs</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ft</span><span class="w">                               
+
+</span><span class="n">Id</span><span class="w">  </span><span class="nx">Name</span><span class="w">        </span><span class="nx">MACAddress</span><span class="w">        </span><span class="nx">Role</span><span class="w">          </span><span class="nx">Cluster</span><span class="w"> </span><span class="nx">IP</span><span class="w">           </span><span class="nx">Hostname</span><span class="w">
+</span><span class="o">--</span><span class="w">  </span><span class="o">----</span><span class="w">        </span><span class="o">----------</span><span class="w">        </span><span class="o">----</span><span class="w">          </span><span class="o">-------</span><span class="w"> </span><span class="o">--</span><span class="w">           </span><span class="o">--------</span><span class="w">
+</span><span class="mi">101</span><span class="w"> </span><span class="n">mgmt-ctrl-1</span><span class="w"> </span><span class="nx">BC:24:11:0A:35:4B</span><span class="w"> </span><span class="nx">control-plane</span><span class="w"> </span><span class="nx">mgmt</span><span class="w">    </span><span class="nx">192.168.0.11</span><span class="w"> </span><span class="nx">mgmt-ctrl-1.pm.dsoderlund.consulting</span><span class="w">
+</span><span class="mi">102</span><span class="w"> </span><span class="n">mgmt-ctrl-2</span><span class="w"> </span><span class="nx">BC:24:11:95:98:4B</span><span class="w"> </span><span class="nx">control-plane</span><span class="w"> </span><span class="nx">mgmt</span><span class="w">    </span><span class="nx">192.168.0.12</span><span class="w"> </span><span class="nx">mgmt-ctrl-2.pm.dsoderlund.consulting</span><span class="w">
+</span><span class="mi">103</span><span class="w"> </span><span class="n">mgmt-ctrl-3</span><span class="w"> </span><span class="nx">BC:24:11:C8:02:39</span><span class="w"> </span><span class="nx">control-plane</span><span class="w"> </span><span class="nx">mgmt</span><span class="w">    </span><span class="nx">192.168.0.13</span><span class="w"> </span><span class="nx">mgmt-ctrl-3.pm.dsoderlund.consulting</span><span class="w">
+</span><span class="mi">104</span><span class="w"> </span><span class="n">mgmt-work-1</span><span class="w"> </span><span class="nx">BC:24:11:C8:08:9C</span><span class="w"> </span><span class="nx">worker</span><span class="w">        </span><span class="nx">mgmt</span><span class="w">    </span><span class="nx">192.168.0.21</span><span class="w"> </span><span class="nx">mgmt-work-1.pm.dsoderlund.consulting</span><span class="w">
+</span><span class="mi">105</span><span class="w"> </span><span class="n">mgmt-work-2</span><span class="w"> </span><span class="nx">BC:24:11:77:29:7F</span><span class="w"> </span><span class="nx">worker</span><span class="w">        </span><span class="nx">mgmt</span><span class="w">    </span><span class="nx">192.168.0.22</span><span class="w"> </span><span class="nx">mgmt-work-2.pm.dsoderlund.consulting</span><span class="w">
+</span><span class="mi">106</span><span class="w"> </span><span class="n">mgmt-work-3</span><span class="w"> </span><span class="nx">BC:24:11:D2:E7:3B</span><span class="w"> </span><span class="nx">worker</span><span class="w">        </span><span class="nx">mgmt</span><span class="w">    </span><span class="nx">192.168.0.23</span><span class="w"> </span><span class="nx">mgmt-work-3.pm.dsoderlund.consulting</span><span class="w">
+</span><span class="mi">107</span><span class="w"> </span><span class="n">mgmt-work-4</span><span class="w"> </span><span class="nx">BC:24:11:37:AC:93</span><span class="w"> </span><span class="nx">worker</span><span class="w">        </span><span class="nx">mgmt</span><span class="w">    </span><span class="nx">192.168.0.24</span><span class="w"> </span><span class="nx">mgmt-work-4.pm.dsoderlund.consulting</span><span class="w">
+</span><span class="mi">109</span><span class="w"> </span><span class="n">mgmt-gpu-1</span><span class="w">  </span><span class="nx">BC:24:11:C4:B3:0E</span><span class="w"> </span><span class="nx">gpu</span><span class="w">           </span><span class="nx">mgmt</span><span class="w">    </span><span class="nx">192.168.0.25</span><span class="w"> </span><span class="nx">mgmt-gpu-1.pm.dsoderlund.consulting</span><span class="w">
+
+
+</span><span class="c"># Set worker and gpu node roles</span><span class="w">
+</span><span class="n">PS</span><span class="w"> </span><span class="nx">/home/dsoderlund/repos/talos</span><span class="err">&gt;</span><span class="w"> </span><span class="nv">$mgmtVMs</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="nf">?</span><span class="w"> </span><span class="nx">Role</span><span class="w"> </span><span class="nt">-in</span><span class="w"> </span><span class="s1">'worker'</span><span class="p">,</span><span class="w"> </span><span class="s1">'gpu'</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nv">$n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">$_</span><span class="o">.</span><span class="nf">Name</span><span class="w">
+    </span><span class="nv">$r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">$_</span><span class="o">.</span><span class="nf">Role</span><span class="w">
+    </span><span class="n">kubectl</span><span class="w"> </span><span class="nx">label</span><span class="w"> </span><span class="nx">node</span><span class="w"> </span><span class="nv">$n</span><span class="w"> </span><span class="nx">node-role.kubernetes.io/</span><span class="nv">$r</span><span class="o">=</span><span class="s1">''</span><span class="w">
+</span><span class="p">}</span><span class="w">
+
+</span><span class="c"># Taint gpu nodes</span><span class="w">
+</span><span class="n">PS</span><span class="w"> </span><span class="nx">/home/dsoderlund/repos/talos</span><span class="err">&gt;</span><span class="w"> </span><span class="nv">$mgmtVMs</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="nf">?</span><span class="w"> </span><span class="nx">Role</span><span class="w"> </span><span class="o">-eq</span><span class="w"> </span><span class="s1">'gpu'</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nv">$n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">$_</span><span class="o">.</span><span class="nf">Name</span><span class="w">
+    </span><span class="n">kubectl</span><span class="w"> </span><span class="nx">taint</span><span class="w"> </span><span class="nx">node</span><span class="w"> </span><span class="nv">$n</span><span class="w"> </span><span class="nx">nvidia.com/gpu:NoSchedule</span><span class="w">
+</span><span class="p">}</span><span class="w">
+
+</span></code></pre></div></div>
+
+<p>Checking that the role got set can be done with <code class="language-plaintext highlighter-rouge">kubectl get nodes</code>. An interesting thing I learned was that nodes are not allowed to set any labels they want on themselves via kubelet (to avoid for exampel changing their role to control-plane). This is why some labels for my nodes are set with the talos patch and some through a script.</p>
+
+<p><img src="../assets/2025-02-17-16-33-53-kubectl-get-nodes.png" alt="output of kubectl get nodes"></p>
+
+<h4 id="kubernetes-configuration">Kubernetes configuration</h4>
+
+<p>I configured the resources needed according to the talos guide I linked to previously into a new argocd application using kustomize and helm.</p>
+
+<p>The nodeselector parameter for the helm chart makes it so that the daemonset only runs on the nodes with gpus, as configured in the previous part. The plugin needs to run on all nodes that has gpus, so that other pods on the same node can be granted access to the gpu.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># kustomization.yaml</span>
+<span class="nn">---</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Kustomization</span>
+<span class="na">resources</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">runtimeclass.yaml</span>
+<span class="na">helmCharts</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">nvidia-device-plugin</span>
+    <span class="na">releaseName</span><span class="pi">:</span> <span class="s">nvidia-device-plugin</span>
+    <span class="na">namespace</span><span class="pi">:</span> <span class="s">kube-system</span>
+    <span class="na">repo</span><span class="pi">:</span> <span class="s">https://nvidia.github.io/k8s-device-plugin</span>
+    <span class="na">version</span><span class="pi">:</span> <span class="s">0.13.0</span>
+    <span class="na">includeCRDs</span><span class="pi">:</span> <span class="no">true</span>
+    <span class="na">valuesInline</span><span class="pi">:</span>
+      <span class="na">runtimeClassName</span><span class="pi">:</span> <span class="s">nvidia</span>
+      <span class="na">nodeSelector</span><span class="pi">:</span>
+        <span class="na">has.nvidia.gpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+</code></pre></div></div>
+<p>The tolerations in the runtime class matches the tains set up in the previous part. Tolerations in runtime classes will be merged with any other tolerations on pod specs. This makes it so that they can encapsulate the effort of expressing to kubernetes that this particular workload can tolerate to run even if the node is tainted which is exactly what we want. The nodeSelector matches up with how how labeled the node.</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">node.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">RuntimeClass</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">nvidia</span>
+<span class="na">handler</span><span class="pi">:</span> <span class="s">nvidia</span>
+<span class="na">scheduling</span><span class="pi">:</span>
+  <span class="na">nodeSelector</span><span class="pi">:</span>
+    <span class="na">has.nvidia.gpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+  <span class="na">tolerations</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">effect</span><span class="pi">:</span> <span class="s">NoSchedule</span>
+    <span class="na">key</span><span class="pi">:</span> <span class="s">nvidia.com/gpu</span>
+    <span class="na">operator</span><span class="pi">:</span> <span class="s">Exists</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kustomize.config.k8s.io/v1beta1</span>
+</code></pre></div></div>
+
+<p>Once synced this creates the nvidia-device-plugin daemonset and the nvidia runtime class. Notice how the daemonset only has the one pod since only one node matches the <code class="language-plaintext highlighter-rouge">has.nvidia.gpu=true</code> selector.</p>
+
+<p><img src="../assets/2025-02-17-15-50-16-nvidia-argocd-app.png" alt="the nvidia app through argocd gui"></p>
+
+<p>This kubernetes cluster is now ready to be tested like our Ubuntu VM before it.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl run <span class="nt">-n</span> dev  <span class="se">\</span>
+    nvidia-version-check <span class="nt">--restart</span><span class="o">=</span>Never <span class="se">\</span>
+    <span class="nt">--image</span> nvcr.io/nvidia/cuda:12.4.0-base-ubuntu22.04 <span class="se">\</span>
+    <span class="nt">--overrides</span> <span class="s1">'{"spec": {"runtimeClassName": "nvidia"}}'</span> <span class="se">\</span>
+    nvidia-smi
+</code></pre></div></div>
+
+<p><img src="../assets/2025-02-09-00-10-39-nvidia-smi-in-kubernetes.png" alt="nvidia smi output from a kubernetes pod"></p>
+
+<p>Wonderful, that was not as easy as docker but just as satisfying.</p>
+
+<h3 id="step-3---running-ollama-and-open-webui-on-kubernetes">Step 3 - running ollama and open webui on kubernetes</h3>
+
+<p>The idea here is to run the same ollama software as before but in a container, with the nvidia runtime such that it gets access to the gpu provided by the nvidia device plugin.</p>
+
+<p>I also want to persist the LLMs to avoid downloading from hugging face or other places over and over if and when the pod gets restarted. I retagged the ollama runtime container image and uploaded to a private oci repo for a similar reason.</p>
+
+<p>I named my service “SQL Genie” after being inspired by my friend <a href="https://bsky.app/profile/sqlgene.com">Eugene(@sqlgene)</a> to actually learn all this stuff. I imagine it being a magical oracle that can help me stay updated on SQL Server.</p>
+
+<h4 id="backend-ollama">backend (Ollama)</h4>
+
+<figure class="highlight"><pre><code class="language-yaml" data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span>  <span class="s">sqlgenie</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">sqlgenie</span>
+    <span class="na">app</span><span class="pi">:</span> <span class="s">sqlgenie</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">replicas</span><span class="pi">:</span> <span class="m">1</span>
+  <span class="na">strategy</span><span class="pi">:</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">Recreate</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">sqlgenie</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">labels</span><span class="pi">:</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">sqlgenie</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">containers</span><span class="pi">:</span>
+<span class="hll">      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span>  <span class="s">sqlgenie</span>
+</span><span class="hll">        <span class="na">image</span><span class="pi">:</span> <span class="s">images.mgmt.dsoderlund.consulting/ollama:latest</span>
+</span>        <span class="na">imagePullPolicy</span><span class="pi">:</span> <span class="s">Always</span>
+        <span class="na">ports</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">http</span>
+          <span class="na">containerPort</span><span class="pi">:</span> <span class="m">11434</span>
+          <span class="na">protocol</span><span class="pi">:</span> <span class="s">TCP</span>
+        <span class="na">resources</span><span class="pi">:</span>
+          <span class="na">requests</span><span class="pi">:</span>
+            <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2000m"</span>
+            <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">16Gi"</span>
+          <span class="na">limits</span><span class="pi">:</span>
+            <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">3000m"</span>
+            <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">60Gi"</span>
+        <span class="na">env</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">OLLAMA_MODELS</span>
+            <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">/model"</span>
+        <span class="na">volumeMounts</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/model</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">model</span>
+          <span class="na">readOnly</span><span class="pi">:</span> <span class="no">false</span>
+
+      <span class="na">volumes</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">model</span>
+          <span class="na">persistentVolumeClaim</span><span class="pi">:</span>
+            <span class="na">claimName</span><span class="pi">:</span> <span class="s">model-llama</span>
+      <span class="na">runtimeClassName</span><span class="pi">:</span>  <span class="s">nvidia</span></code></pre></figure>
+
+<p>For storage I use a custom CSI that allows talos to use my synology NAS to provide block level storage devices (LUN) that it can mount as drives rather than a remote file system.</p>
+
+<figure class="highlight"><pre><code class="language-yaml" data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">PersistentVolumeClaim</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">model-llama</span>
+<span class="na">spec</span><span class="pi">:</span>
+<span class="hll">  <span class="na">storageClassName</span><span class="pi">:</span> <span class="s">lun</span>
+</span>  <span class="na">resources</span><span class="pi">:</span>
+    <span class="na">requests</span><span class="pi">:</span>
+      <span class="na">storage</span><span class="pi">:</span> <span class="s">64Gi</span>
+  <span class="na">volumeMode</span><span class="pi">:</span> <span class="s">Filesystem</span>
+  <span class="na">accessModes</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">ReadWriteOnce</span></code></pre></figure>
+
+<p>Of course I want sqlgenie to be available in the cluster so that open webui can reach it, so I set up a service for discovery.</p>
+
+<figure class="highlight"><pre><code class="language-yaml" data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Service</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">sqlgenie</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">sqlgenie</span>
+  <span class="na">type</span><span class="pi">:</span> <span class="s">ClusterIP</span>
+  <span class="na">ports</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">http</span>
+    <span class="na">port</span><span class="pi">:</span> <span class="m">11434</span>
+    <span class="na">targetPort</span><span class="pi">:</span> <span class="s">11434</span></code></pre></figure>
+
+<h4 id="frontend-open-webui">Frontend (open webui)</h4>
+
+<p>With that up and running, time to add open webui as the front end. Similar image reupload as with ollama to give docker hub a break.</p>
+
+<p>Note the ollama base url matching the service name and port from before.</p>
+
+<figure class="highlight"><pre><code class="language-yaml" data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span>  <span class="s">sqlgenie-frontend</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">sqlgenie-frontend</span>
+    <span class="na">app</span><span class="pi">:</span> <span class="s">sqlgenie</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">replicas</span><span class="pi">:</span> <span class="m">1</span>
+  <span class="na">strategy</span><span class="pi">:</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">Recreate</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">sqlgenie-frontend</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">labels</span><span class="pi">:</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">sqlgenie-frontend</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">containers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">sqlgenie-frontend</span>
+<span class="hll">        <span class="na">image</span><span class="pi">:</span> <span class="s">images.mgmt.dsoderlund.consulting/open-webui:latest</span>
+</span>        <span class="na">imagePullPolicy</span><span class="pi">:</span> <span class="s">Always</span>
+        <span class="na">ports</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">http</span>
+          <span class="na">containerPort</span><span class="pi">:</span> <span class="m">8080</span>
+          <span class="na">protocol</span><span class="pi">:</span> <span class="s">TCP</span>
+        <span class="na">env</span><span class="pi">:</span>
+<span class="hll">          <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">OLLAMA_BASE_URL</span>
+</span><span class="hll">            <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">http://sqlgenie:11434"</span>
+</span>        <span class="na">volumeMounts</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">webui-data</span>
+          <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/app/backend/data</span>
+        <span class="na">resources</span><span class="pi">:</span>
+          <span class="na">requests</span><span class="pi">:</span>
+            <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1000m"</span>
+            <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2Gi"</span>
+          <span class="na">limits</span><span class="pi">:</span>
+            <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1000m"</span>
+            <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2Gi"</span>
+      <span class="na">volumes</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">webui-data</span>
+        <span class="na">persistentVolumeClaim</span><span class="pi">:</span>
+          <span class="na">claimName</span><span class="pi">:</span> <span class="s">webui-data</span></code></pre></figure>
+
+<p>The webui will store things like basic credentials and chat history per user. I added similar storage to before for that.</p>
+
+<figure class="highlight"><pre><code class="language-yaml" data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">PersistentVolumeClaim</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">webui-data</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">storageClassName</span><span class="pi">:</span> <span class="s">lun</span>
+  <span class="na">resources</span><span class="pi">:</span>
+    <span class="na">requests</span><span class="pi">:</span>
+      <span class="na">storage</span><span class="pi">:</span> <span class="s">8Gi</span>
+  <span class="na">volumeMode</span><span class="pi">:</span> <span class="s">Filesystem</span>
+  <span class="na">accessModes</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">ReadWriteOnce</span></code></pre></figure>
+
+<p>In order to access the site it needs to be made available for service discovery. I want to reach it on port 80.</p>
+
+<figure class="highlight"><pre><code class="language-yaml" data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Service</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">sqlgenie-frontend</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">sqlgenie-frontend</span>
+  <span class="na">type</span><span class="pi">:</span> <span class="s">ClusterIP</span>
+  <span class="na">ports</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">http</span>
+    <span class="na">port</span><span class="pi">:</span> <span class="m">80</span>
+    <span class="na">targetPort</span><span class="pi">:</span> <span class="s">8080</span></code></pre></figure>
+
+<p>And lastly I added some configuration analogous to ingress, with istio being what my cluster runs for things like auth middleware.</p>
+
+<p>Istio will handle tls termination at the gateway level, if I were to run a service mesh it would do mTLS from there to the pod, but I have no need.</p>
+
+<p>I am reusing a certificate that matches *.mgmt.dsoderlund.consulting which is the hostname that maps to the IP of the istio ingress gateway available on my office network. Check out previous posts on <a href="./external-dns-with-pi-hole">how I got DNS to work in the office</a>, and <a href="./the-joy-of-kubernetes-2-let-us-encrypt">how the istio gateway certificates are generated</a>.</p>
+
+<figure class="highlight"><pre><code class="language-yaml" data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.istio.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Gateway</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">sqlgenie-gateway</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">app</span><span class="pi">:</span> <span class="s">istio-gateway</span>
+  <span class="na">servers</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">port</span><span class="pi">:</span>
+        <span class="na">number</span><span class="pi">:</span> <span class="m">443</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">https</span>
+        <span class="na">protocol</span><span class="pi">:</span> <span class="s">HTTPS</span>
+      <span class="na">hosts</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">sqlgenie.mgmt.dsoderlund.consulting"</span>
+      <span class="na">tls</span><span class="pi">:</span>
+        <span class="na">mode</span><span class="pi">:</span> <span class="s">SIMPLE</span>
+        <span class="na">credentialName</span><span class="pi">:</span> <span class="s">mgmt-tls</span>
+
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.istio.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">VirtualService</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">sqlgenie-vs</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="na">link.argocd.argoproj.io/external-link</span><span class="pi">:</span> <span class="s">https://sqlgenie.mgmt.dsoderlund.consulting</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">hosts</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">sqlgenie.mgmt.dsoderlund.consulting</span>
+  <span class="na">gateways</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">sqlgenie-gateway</span>
+  <span class="na">http</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">match</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">uri</span><span class="pi">:</span>
+        <span class="na">prefix</span><span class="pi">:</span> <span class="s2">"</span><span class="s">/"</span>
+    <span class="pi">-</span> <span class="na">uri</span><span class="pi">:</span>
+        <span class="na">exact</span><span class="pi">:</span> <span class="s">/</span>
+    <span class="na">route</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">destination</span><span class="pi">:</span>
+        <span class="na">host</span><span class="pi">:</span> <span class="s">sqlgenie-frontend.dev.svc.cluster.local</span>
+        <span class="na">port</span><span class="pi">:</span>
+          <span class="na">number</span><span class="pi">:</span> <span class="s">80</span></code></pre></figure>
+
+<h4 id="final-deployment-in-argocd">Final deployment in argocd</h4>
+
+<p>There we go, all the resources are stored for argocd to pick them up in a new application.</p>
+
+<p><img src="../assets/2025-02-17-17-05-38-sqlgenie-argocd-app.png" alt="sqlgenie app from the argocd ui"></p>
+
+<p>And now we can check out <a href="#the-end-results">The end results</a></p>
+
+<p>Note that the final product was increadibly slow for me, I know too little about running this type of setup to even begin tuning or troubleshooting. Your milage may vary :)</p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-sa/4.0">
+    <span>
+        <b>David Söderlund</b>
+    </span>
+    
+    <span>© 2025</span>
+  </a>
+</footer>
+
+  
+    <script type="text/javascript">
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+  ga('create', 'UA-263169605-1', 'auto');
+  ga('send', 'pageview');
+</script>
+  
+</body>
+
+</html>

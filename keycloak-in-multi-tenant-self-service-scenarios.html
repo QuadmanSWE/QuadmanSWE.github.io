@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+
+  <title>Keycloak in multi-tenant self service scenarios</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="alternate" type="application/atom+xml" href="/feed.xml">
+</head>
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    <h1>blog.dsoderlund.consulting</h1>
+    </a>
+    <div class="header-links">
+      <a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Keycloak in multi-tenant self service scenarios</h2>
+  <time datetime="2024-11-04T00:00:00+00:00" class="by-line">04 Nov 2024</time>
+  <p>This is a guide on how to get up and running with the phasetwo open source solution to the problem of true multitenancy with per tenant self service of single sign on and roles.</p>
+
+<!--more-->
+
+<ul>
+  <li><a href="#background-story-time">background (story time)</a></li>
+  <li><a href="#new-developments--that-time-i-actually-set-this-up-myself-in-production-">New developments ( that time I actually set this up myself in production )</a></li>
+  <li>
+<a href="#my-implementation-solution--more-story-time-">My implementation solution ( more story time )</a>
+    <ul>
+      <li><a href="#goals">Goals</a></li>
+    </ul>
+  </li>
+  <li>
+<a href="#how-i-did-it">How I did it</a>
+    <ul>
+      <li><a href="#container-image--i-used-docker-">Container image ( I used docker )</a></li>
+    </ul>
+  </li>
+  <li><a href="#bootstrap-deployment">Bootstrap deployment</a></li>
+  <li><a href="#example-implemenation">Example implemenation</a></li>
+</ul>
+
+<h2 id="background-story-time">background (story time)</h2>
+
+<p>I have set up and worked a lot with keycloak for an internal developer platform for a customer. We had great success with it and another team at the customer then went on and started using keycloak for a bunch of advanced oidc stuff in their legacy applications which was very rewarding to hear about. In one green field project they were also toying with the idea of allowing their customers to manage some of their settings through some portal for access to their apps.</p>
+
+<p><img src="../assets/2024-11-04-img1-keycloak-tenants-users.png" alt="Sketch of authentication for different users to some set of applications"></p>
+
+<p>Users would be able to authenticate in different ways, while not exposing which customers existed prior to them being authenticated. Some users would be administrators of their respective tenants, some would be administrators in the keycloak instance itself, and some users need to take on administrative roles for multiple tenants to help with support functions.</p>
+
+<p>They saw this as a huge endeavour even though one of their most experienced architects pointed out that there are plugin for keycloak that does most of the heavy lifting. I sadly never got to see the solution implemented but the use case and suggested solution stuck in my mind.</p>
+
+<p>Here is the <a href="https://github.com/p2-inc/keycloak-orgs">plugin collection from phasetwo</a>, and a <a href="https://www.youtube.com/watch?v=DNq51wWw3F4">great explainer video</a> about the design thinking in creating it.</p>
+
+<p>As covered in the video, challenges with single realm multitenancy is that information gets leaked about other tenants and users. The issue with multi realm is configuration complexity and duplication of effort.</p>
+
+<p>Also if you have the money to spend on development or staffing for operating this solution, the prices for their managed service is very reasonable. Consider buying instead of rolling your own. <a href="https://phasetwo.io/">https://phasetwo.io/</a></p>
+
+<h2 id="new-developments--that-time-i-actually-set-this-up-myself-in-production-">New developments ( that time I actually set this up myself in production )</h2>
+
+<p>In October of 2024 I was asked to give input on how best to set up a easy to use and cost effective solution to a similar set of features:</p>
+
+<ul>
+  <li>Multiple customers
+    <ul>
+      <li>Need to self service their federated authentication</li>
+      <li>Need to be able to manage users without federated authentication.</li>
+      <li>Invite users to their tenant with email</li>
+    </ul>
+  </li>
+  <li>The company and their partners often need to have admin access in one or more tenants to help out with configuration or administration.</li>
+  <li>Sign up without a tenant for access to documentation, promotional material, and/or demo sites.
+    <ul>
+      <li>blacklist domains for self sign up</li>
+      <li>safe password hash storage</li>
+      <li>auth apps (OTP)</li>
+      <li>direct invite via email.</li>
+    </ul>
+  </li>
+</ul>
+
+<p>The customer initially leaned towards starting out with Azure Entra ID B2C which is reasonable. They were already running their stuff on azure and used entraid for their own organization. The pricing was basically free for their projected volumes and I started devouring B2C docs and testing out examples with fervor. I soon concluded that I was entering a world of pain and the architecture would lead to exponential configurational and administrative costs.</p>
+
+<p>As one sysadmin redditor put it <a href="https://www.reddit.com/r/sysadmin/comments/10l1i9v/azure_ad_b2c_custom_policy_problem/j5uxnd1/">“Azure B2C custom polices - welcome to hell :).”</a></p>
+
+<ul>
+  <li>There are no users, only claims mapping</li>
+  <li>Everything is done with custom policies that require their own entire skill set apart from oidc.</li>
+</ul>
+
+<p>Other recommended reading for catharsis on horrible developer experience is <a href="https://www.netglade.cz/en/blog/azure-active-directory-b2c-developer-experience">this series on Azure B2C from netglade</a>.</p>
+
+<h2 id="my-implementation-solution--more-story-time-">My implementation solution ( more story time )</h2>
+
+<p>Faced with this I suggested we spin up a simple keycloak using their existing pattern of azure web apps and azure sql database.</p>
+
+<p><img src="../assets/2024-11-04-img2-azure-architecture.png" alt="Simplified azure arcitecture drawing of dns, keycloak in azure web apps, and a jdbc connection to azure sql database"></p>
+
+<p>In my reference platform you can get this running with kubernetes and postgres instead. Link at the bottom of the post. <a href="https://github.com/QuadmanSWE/ds-ref-platform/tree/main/multitenant-keycloak">The code to get the custom image is here</a>.</p>
+
+<h3 id="goals">Goals</h3>
+
+<p>I wanted to not use database credentials since azure sql supports integrated security and so does jdbc with the right libraries.</p>
+
+<p>I wanted to run keycloak in the root path (/) instead of the legacy (/auth) path that phasetwo runs on.</p>
+
+<h2 id="how-i-did-it">How I did it</h2>
+
+<ul>
+  <li>
+    <p>New web app for linux containers, enabled system managed identity and set up dns forwarding with free cert using the ui ( txt and cname record in customers DNS)</p>
+  </li>
+  <li>
+    <p>Database added to a server that supports only entraid auth.</p>
+  </li>
+  <li>
+    <p>New user in that database for the web apps managed identity. Granted that user db_owner role.</p>
+  </li>
+</ul>
+
+<h3 id="container-image--i-used-docker-">Container image ( I used docker )</h3>
+
+<p>I imprinted all environment variables and phasetwo runtime arguments for email with optimized build.</p>
+
+<ul>
+  <li>
+    <p>Edge proxy (no cert in the image, azure does tls termination)</p>
+  </li>
+  <li>
+    <p>Database URL (look mum, no username/password)</p>
+  </li>
+</ul>
+
+<p>Plugins/augmentations</p>
+
+<ul>
+  <li>
+    <p>Microsofts documented <a href="https://learn.microsoft.com/en-us/sql/connect/jdbc/connecting-using-azure-active-directory-authentication?view=sql-server-ver16#client-setup-requirements">JDBC driver dependencies for their identity management</a></p>
+  </li>
+  <li>
+    <p>Customized idp wizard to work at root path</p>
+  </li>
+</ul>
+
+<h2 id="bootstrap-deployment">Bootstrap deployment</h2>
+
+<p>Keycloak deploys its own database schema but you need local access to create the first admin unless you use env variables for that. So I did temporarily run the these variables until my own account existed. I also created one for my customer contact.</p>
+
+<ul>
+  <li>KC_BOOTSTRAP_ADMIN_USERNAME</li>
+  <li>KC_BOOTSTRAP_ADMIN_PASSWORD</li>
+</ul>
+
+<p>Then I enabled the plugins visibility by setting that theme in the realm. I went ahead and renamned the realm and import logos and stuff.</p>
+
+<p>I then created my own orginization and could then assign myself roles in it to demonstrate self service of SSO.</p>
+
+<p>I connected to my companys google auth with oidc and could then remove my password.</p>
+
+<p>For my customer I set up a second org the same way and challenged them to try and set up entra id with saml2.</p>
+
+<p>Lastly I tweakes the browser login flow to allow for idp home discovery but also self service registration.</p>
+
+<h2 id="example-implemenation">Example implemenation</h2>
+
+<p>As hinted before I’ve updated <a href="https://github.com/QuadmanSWE/ds-ref-platform">my reference platform</a> to run with these plugins instead of vanilla keycloak so you can get up and running quickly to try it out (as long as you run Windows). Clone the repo, and follow the instructions.</p>
+
+<p>Remember to reload keycloak once you have activated the plugin theme.</p>
+
+<p><img src="../assets/2024-11-04-img3-realm-themes.png" alt="Setting realm theme activates plugin visibility"></p>
+
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-sa/4.0">
+    <span>
+        <b>David Söderlund</b>
+    </span>
+    
+    <span>© 2025</span>
+  </a>
+</footer>
+
+  
+    <script type="text/javascript">
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+  ga('create', 'UA-263169605-1', 'auto');
+  ga('send', 'pageview');
+</script>
+  
+</body>
+
+</html>

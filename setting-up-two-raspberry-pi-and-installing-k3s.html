@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+
+  <title>Quick guide to kubernetes on raspberry pi</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="alternate" type="application/atom+xml" href="/feed.xml">
+</head>
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    <h1>blog.dsoderlund.consulting</h1>
+    </a>
+    <div class="header-links">
+      <a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Quick guide to kubernetes on raspberry pi</h2>
+  <time datetime="2021-09-12T00:00:00+00:00" class="by-line">12 Sep 2021</time>
+  <h1 id="beyond-minikube---setting-up-two-raspberry-pi-with-k3s-to-get-experience-with-kubernetes">Beyond Minikube - setting up two raspberry pi with k3s to get experience with kubernetes.</h1>
+
+<p>The scope of this post is not to give an introduction to what kubernetes is or why to use it.</p>
+
+<p>Chances are if you find this post that you want to build a physical cluster on your home network and practice deploying services to it.</p>
+
+<!--more-->
+
+<p>We will be using <a href="https://k3s.io/">k3s from rancher</a> as our kubernetes distro.</p>
+
+<p>This guide is intended for developers that use primarily Windows 10 and want an example of what setting up a physical kubernetes cluster is like.</p>
+
+<ul>
+  <li>
+<a href="#beyond-minikube---setting-up-two-raspberry-pi-with-k3s-to-get-experience-with-kubernetes">Beyond Minikube - setting up two raspberry pi with k3s to get experience with kubernetes.</a>
+    <ul>
+      <li>
+<a href="#cluster-infrastructure-set-up">Cluster infrastructure set up</a>
+        <ul>
+          <li><a href="#unpacking-and-bootstrapping-rasbian">Unpacking and bootstrapping rasbian</a></li>
+          <li><a href="#configuring-raspbian-after-boot-on-each-node">Configuring raspbian after boot on each node</a></li>
+          <li><a href="#assiging-static-ip">Assiging static IP</a></li>
+          <li><a href="#installing-k3s-on-the-first-node">Installing k3s on the first node</a></li>
+          <li><a href="#installing-and-joining-the-other-nodes">Installing and joining the other nodes</a></li>
+        </ul>
+      </li>
+      <li>
+<a href="#the-tools-i-use-to-interact-with-kubernetes-from-windows-10">The tools I use to interact with kubernetes from windows 10</a>
+        <ul>
+          <li><a href="#kubectl-and-friends">kubectl and friends</a></li>
+          <li><a href="#vs-code-extension">vs code extension</a></li>
+        </ul>
+      </li>
+      <li>
+<a href="#my-first-deployment">My first deployment</a>
+        <ul>
+          <li><a href="#straight-up-simplest-web-app-of-your-life">Straight up simplest web app of your life</a></li>
+          <li><a href="#something-a-bit-harder-with-helm">Something a bit harder, with helm</a></li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+</ul>
+
+<hr>
+
+<h2 id="cluster-infrastructure-set-up">Cluster infrastructure set up</h2>
+
+<p>I bought the two rasberry pi, usb-c cables for power, some cute <a href="https://www.inet.se/produkt/1974085/okdo-raspberry-pi-4-case-black">ebony</a> and <a href="https://www.inet.se/produkt/1974087/okdo-raspberry-pi-4-case-clear">ivory</a> cases and micro SD-cards from <a href="Inet.se">https://www.inet.se/</a> (shout out to their webshop, expect more business from me).</p>
+
+<p>Once the package showed up, me and <a href="https://twitter.com/Algaron87">Algaron87</a> unpacked everything and put the two raspberry pi into their cases. Algaron is my high school buddy / friend of the family / godfather of my children / all around good guy.</p>
+
+<p><img src="../assets/k3s-shopping-list.png" alt=""></p>
+
+<hr>
+<h3 id="unpacking-and-bootstrapping-rasbian">Unpacking and bootstrapping rasbian</h3>
+
+<p>We unpacked the micro SD-cards and began flashing over a rasbian image that you can <a href="https://downloads.raspberrypi.org/">download here.</a></p>
+
+<p>The one we chose for the occation was <a href="https://downloads.raspberrypi.org/raspios_arm64/images/raspios_arm64-2020-08-24/2020-08-20-raspios-buster-arm64.zip">“2020-08-20-raspios-buster-arm64-lite.zip”</a>.</p>
+
+<p>We mounted the image in windows and added an empty ssh file to the image before copying over to show that we wanted to use ssh in the future. (We killed the ability to log on with password in the future in the sshd_config file.)</p>
+
+<p>I am using an old mp3 player accessory as a docking station for micro SD-cards.</p>
+
+<p>The disk write software we used was <a href="https://sourceforge.net/projects/win32diskimager/">Win32DiskImager</a>, instructions in <a href="https://www.raspberrypi.org/documentation/computers/getting-started.html#installing-images-on-windows">the raspberry pi documentation</a>.</p>
+
+<p><img src="../assets/k3s-raspberry.jpg" alt=""></p>
+
+<hr>
+<h3 id="configuring-raspbian-after-boot-on-each-node">Configuring raspbian after boot on each node</h3>
+
+<p>I named my nodes ds-pi-1 and ds-pi-2, assigning them ip addresses 192.168.0.78 and 192.168.0.79 respectively.</p>
+
+<p>The one named ds-pi-2 became the master node. (We assigned this by which was the first case we unpacked and somehow switched SD-cards around and got them confused!)</p>
+
+<p>Adding this info to your local ssh_config file will make it a bit easier to keep track while boostrapping. Once the cluster is up and running the need to ssh to them diminishes.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="sh">@"
+
+Host ds-pi-2
+  HostName 192.168.0.79
+  User pi
+
+Host kubemaster
+  HostName 192.168.0.79
+  User pi
+
+Host ds-pi-1
+  HostName 192.168.0.78
+  User pi
+
+Host kubeworker
+  HostName 192.168.0.78
+  User pi
+
+"@</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">out-file</span><span class="w"> </span><span class="nx">C:\ProgramData\ssh\ssh_config</span><span class="w"> </span><span class="nt">-append</span><span class="w">
+
+</span></code></pre></div></div>
+
+<p>Time to connect and configure each node, had I had three or more nodes I would look into automating this part further.</p>
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ssh</span><span class="w"> </span><span class="nx">pi</span><span class="err">@</span><span class="nx">kubemaster</span><span class="w">
+</span></code></pre></div></div>
+<p><a href="https://www.raspberrypi.org/documentation/computers/configuration.html">Reference this documetation on rasp-config.</a></p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>raspi-config <span class="c">#follow the steps</span>
+
+<span class="c">#add ssh keys</span>
+<span class="nb">mkdir</span> /home/pi/.ssh
+<span class="nb">echo</span> <span class="s2">"&lt;Mine and Algaron's ssh keys&gt;"</span> <span class="o">&gt;</span> /home/pi/.ssh/authorized_keys
+
+<span class="c">#kill the ability to log on with password</span>
+<span class="nb">sed</span> <span class="nt">-i</span> <span class="s1">'s/#PasswordAuthentication.*/PasswordAuthentication no/'</span> /etc/ssh/sshd_config
+<span class="nb">sed</span> <span class="nt">-i</span> <span class="s1">'s/UsePAM yes.*/UsePAM no/'</span> /etc/ssh/sshd_config
+
+<span class="c">#Enable container features</span>
+<span class="nb">printf</span> %s <span class="s2">" cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory"</span> <span class="o">&gt;&gt;</span> /boot/cmdline.txt
+
+</code></pre></div></div>
+<blockquote>
+  <p>📝 Not sure if it is an intermittent problem or if I appended to the cmdline.txt file improperly but I had to at least once remove an extra empty line from that file after writing to get container features running properly. Let me know if you have any input.</p>
+</blockquote>
+
+<p>Now repeat that step for each worker node (in my case the only one)</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ssh</span><span class="w"> </span><span class="nx">pi</span><span class="err">@</span><span class="nx">kubeworker</span><span class="w">
+</span></code></pre></div></div>
+
+<hr>
+
+<h3 id="assiging-static-ip">Assiging static IP</h3>
+
+<p>You should set your static ip on the nodes and not in your router like I did to prevent issues with DNS inside the cluster. I don’t care about that stuff and I live my life pretty much as a renegade (I am hiding an insecurity with my lazyness, don’t judge).</p>
+
+<p><img src="../assets/k3s-router.png" alt=""></p>
+
+<hr>
+
+<h3 id="installing-k3s-on-the-first-node">Installing k3s on the first node</h3>
+
+<p>We performed a proper reboot of the nodes by unplugging and replugging the two raspberry pi.</p>
+
+<p>Let’s fire up windows terminal and ssh to the nodes.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ssh</span><span class="w"> </span><span class="nx">pi</span><span class="err">@</span><span class="nx">kubemaster</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="../assets/k3s-ssh-kubemaster.png" alt=""></p>
+
+<p>These commands will initialize the cluster by downloading the script from the k3s site. Then it will output the token we need.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">export </span><span class="nv">K3S_KUBECONFIG_MODE</span><span class="o">=</span>644
+curl <span class="nt">-sfL</span> https://get.k3s.io | sh -
+<span class="nb">sudo cat</span> /var/lib/rancher/k3s/server/node-token <span class="c">#shows you the token you need to connect nodes and your dev environement</span>
+</code></pre></div></div>
+
+<p><img src="../assets/k3s-token-output.png" alt=""></p>
+
+<p>Replace 127.0.0.1 with the ip address of the kube master, in our case 192.168.0.79</p>
+
+<hr>
+
+<h3 id="installing-and-joining-the-other-nodes">Installing and joining the other nodes</h3>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ssh</span><span class="w"> </span><span class="nx">pi</span><span class="err">@</span><span class="nx">kubeworker</span><span class="w">
+</span></code></pre></div></div>
+
+<p>Replace master ip and master key</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>curl <span class="nt">-sfL</span> https://get.k3s.io | <span class="nv">K3S_URL</span><span class="o">=</span><span class="s2">"https://&lt;master ip&gt;:6443"</span> <span class="nv">K3S_TOKEN</span><span class="o">=</span>&lt;master key&gt; sh -
+</code></pre></div></div>
+
+<hr>
+
+<h2 id="the-tools-i-use-to-interact-with-kubernetes-from-windows-10">The tools I use to interact with kubernetes from windows 10</h2>
+
+<p>Let’s quickly go over my recommended way to interact with kubernetes form windows with powershell.</p>
+
+<hr>
+
+<h3 id="kubectl-and-friends">kubectl and friends</h3>
+
+<p>If you know anything about me you know about <a href="https://chocolatey.org/install">chocolatey</a>.</p>
+
+<hr>
+
+<p><a href="https://kubernetes.io/docs/tasks/tools/">kubectl</a> is the command line interface for kubernetes, I will use it for most of the interaction with the cluster, as well as the vs code extension for a visualization.</p>
+
+<hr>
+
+<p><a href="https://helm.sh/">helm</a> and its charts lets developers describe their applications for kubernetes deployment rather than an array of kubernetes deployments.
+This way you can install and upgrade an application in one go and it is a great interface for talking about the application between the development team and the operations team / SRE.</p>
+
+<hr>
+
+<p>Lastly I suggest for people who are comfortable with docker-compose to try out <a href="https://kubernetes.io/docs/tasks/configure-pod-container/translate-compose-kubernetes/">kompose</a> which will translate yaml from the former to the latter so that you can deploy an application you are familiar with to kubernetes and see what gets created to facilitate your application.</p>
+
+<hr>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">choco</span><span class="w"> </span><span class="nx">install</span><span class="w"> </span><span class="nx">kubernetes-cli</span><span class="w"> </span><span class="nt">--y</span><span class="w">
+</span><span class="n">choco</span><span class="w"> </span><span class="nx">install</span><span class="w"> </span><span class="nx">kubernetes-helm</span><span class="w"> </span><span class="nt">--y</span><span class="w">
+</span><span class="n">choco</span><span class="w"> </span><span class="nx">install</span><span class="w"> </span><span class="nx">kubernetes-kompose</span><span class="w"> </span><span class="nt">--y</span><span class="w">
+</span><span class="c">#let's see what we have got installed</span><span class="w">
+</span><span class="n">choco</span><span class="w"> </span><span class="nx">list</span><span class="w"> </span><span class="nt">--local</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="../assets/k3s-choco-list.png" alt=""></p>
+
+<p>You can connect to the cluster from your local machine by importing the connection settings shown through the info from the cluster</p>
+
+<p>Save the output from the config command you ran on the master node. Put it into a file named config under ~/.kube. Merge it if you have a file from before for one or more other clusters.</p>
+
+<p><img src="../assets/k3s-kubeconfig.png" alt=""></p>
+
+<p>Now we can check out our deployment status with kubectl, it will use our configuration that we saved in the previous step.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl get nodes
+</code></pre></div></div>
+<p><img src="../assets/k3s-get-nodes.png" alt=""></p>
+
+<hr>
+
+<h3 id="vs-code-extension">vs code extension</h3>
+
+<p>The kube config we saved can also be leveraged by the kubernetes extension for vscode.</p>
+
+<p><img src="../assets/k3s-kubernetes-extension-install.png" alt=""></p>
+
+<p>Now we can for example browse our nodes from here, and what they are running. I find this a great visual tool to learn how my deployments become entities in kubernetes and what yaml they produce internally.</p>
+
+<p><img src="../assets/k3s-kubernetes-extension-nodes.png" alt=""></p>
+
+<h2 id="my-first-deployment">My first deployment</h2>
+
+<h3 id="straight-up-simplest-web-app-of-your-life">Straight up simplest web app of your life</h3>
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">kubectl</span><span class="w"> </span><span class="nx">apply</span><span class="w"> </span><span class="nt">-f</span><span class="w"> </span><span class="s2">"https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/application/deployment.yaml"</span><span class="w">
+</span></code></pre></div></div>
+
+<p>If you are quick in the extension you can see the two pods of the deployment being unavailable for a time</p>
+
+<p><img src="../assets/k3s-simple-app-deploy.png" alt=""></p>
+
+<p>In a few short moments they will turn green, indicating they are in the ready state.</p>
+
+<p><img src="../assets/k3s-simple-app-deploy-2.png" alt=""></p>
+
+<p>Get rid of that stuff by running kubectl delete deployment nginx-deployment</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">kubectl</span><span class="w"> </span><span class="nx">delete</span><span class="w"> </span><span class="nx">deployment</span><span class="w"> </span><span class="nx">nginx-deployment</span><span class="w">
+</span></code></pre></div></div>
+
+<hr>
+
+<h3 id="something-a-bit-harder-with-helm">Something a bit harder, with helm</h3>
+
+<p>Note that when you install helm charts, that a lot of them contain images which are not built for the ARM architecture of our raspberry pi cluster. Your milage might wary. Here is a repo with a chart I built for a simple golang app that translates string input into a QR code png.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">helm</span><span class="w"> </span><span class="nx">repo</span><span class="w"> </span><span class="nx">add</span><span class="w"> </span><span class="nx">dsoderlund</span><span class="w"> </span><span class="s2">"https://blog.dsoderlund.consulting/helm-charts/"</span><span class="w">
+</span><span class="n">helm</span><span class="w"> </span><span class="nx">search</span><span class="w"> </span><span class="nx">repo</span><span class="w"> </span><span class="nx">qr</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="../assets/k3s-helm-repo-added.png" alt=""></p>
+
+<hr>
+
+<p>Now we can deploy the helm chart, <code class="language-plaintext highlighter-rouge">--set key=value</code> will overwrite a setting in the default values, I want to replace the default port 8080 with 17890.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">17890</span><span class="w">
+</span><span class="n">kubectl</span><span class="w"> </span><span class="nx">create</span><span class="w"> </span><span class="nx">namespace</span><span class="w"> </span><span class="nx">qr</span><span class="w">
+</span><span class="n">helm</span><span class="w"> </span><span class="nx">install</span><span class="w"> </span><span class="nt">--set</span><span class="w"> </span><span class="nx">service.port</span><span class="o">=</span><span class="nv">$port</span><span class="w"> </span><span class="n">qr</span><span class="w"> </span><span class="nt">-n</span><span class="w"> </span><span class="nx">qr</span><span class="w"> </span><span class="nx">dsoderlund/qr</span><span class="w"> 
+</span></code></pre></div></div>
+
+<p>When we run the helm install we get an output like so.</p>
+
+<p><img src="../assets/k3s-helm-install.png" alt=""></p>
+
+<hr>
+
+<p>There we go, now I can get on demand QR codes form kubernetes.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">17890</span><span class="w">
+
+</span><span class="c">#some testing data</span><span class="w">
+</span><span class="nv">$AwesomePageOnTheInterwebs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"https://blog.dsoderlund.consulting/setting-up-two-raspberry-pi-and-installing-k3s"</span><span class="w"> </span><span class="c"># 👀</span><span class="w">
+</span><span class="nv">$url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"http://192.168.0.78:{0}/?data={1}&amp;size={2}"</span><span class="w"> </span><span class="nt">-f</span><span class="w"> </span><span class="nv">$port</span><span class="p">,</span><span class="w"> </span><span class="nv">$AwesomePageOnTheInterwebs</span><span class="p">,</span><span class="w"> </span><span class="mi">512</span><span class="w">
+
+</span><span class="c">#surf</span><span class="w">
+</span><span class="n">start</span><span class="w"> </span><span class="nx">chrome</span><span class="w"> </span><span class="nv">$url</span><span class="w">
+
+</span><span class="c">#stream QR codes to png files</span><span class="w">
+</span><span class="nv">$response</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Invoke-WebRequest</span><span class="w"> </span><span class="nt">-Uri</span><span class="w"> </span><span class="nv">$url</span><span class="w">
+</span><span class="p">[</span><span class="n">IO.File</span><span class="p">]::</span><span class="n">WriteAllBytes</span><span class="p">(</span><span class="s2">"somefile.png"</span><span class="p">,</span><span class="nv">$response</span><span class="o">.</span><span class="nf">Content</span><span class="p">)</span><span class="w">
+
+
+</span></code></pre></div></div>
+<p>Here is the output with a QR code that should point to this very blog post. Go ahead and scan it. 📷</p>
+
+<p><img src="../assets/k3s-url-as-qr.png" alt=""></p>
+
+<hr>
+
+<p>To remove a helm chart, run helm uninstall.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">helm</span><span class="w"> </span><span class="nx">uninstall</span><span class="w"> </span><span class="nx">qr</span><span class="w"> </span><span class="nt">-n</span><span class="w"> </span><span class="nx">qr</span><span class="w">
+</span></code></pre></div></div>
+
+<p>If you are interested in not only running helm charts but creating them, check out <a href="https://helm.sh/docs/helm/helm_create/">this great documentation</a>.</p>
+
+<p>If you like powershell like I do I’ve made my <a href="https://github.com/QuadmanSWE/QuadmanSWE.github.io/tree/main/helm">helm chart build script available on github</a>.</p>
+
+<hr>
+
+<p>Next time we will look at service meshes, <a href="https://linkerd.io">Linkerd</a> will be installed ontop of this cluster as a reference.</p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-sa/4.0">
+    <span>
+        <b>David Söderlund</b>
+    </span>
+    
+    <span>© 2025</span>
+  </a>
+</footer>
+
+  
+    <script type="text/javascript">
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+  ga('create', 'UA-263169605-1', 'auto');
+  ga('send', 'pageview');
+</script>
+  
+</body>
+
+</html>

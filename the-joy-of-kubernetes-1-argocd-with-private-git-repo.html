@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+
+  <title>The Joy of Kubernetes 1 - Argo CD with private git repo</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="alternate" type="application/atom+xml" href="/feed.xml">
+</head>
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    <h1>blog.dsoderlund.consulting</h1>
+    </a>
+    <div class="header-links">
+      <a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>The Joy of Kubernetes 1 - Argo CD with private git repo</h2>
+  <time datetime="2023-04-07T00:00:00+00:00" class="by-line">07 Apr 2023</time>
+  <h1 id="welcome-to-the-joy-of-kubernetes">Welcome to the Joy of Kubernetes</h1>
+
+<p>In this first entry in The Joy of Kubernetes we will explore setting up Argo CD and deploying applications through gitops. That is our desired state of our applications are recoreded and versioned controlled in git, while an agent called Argo CD makes sure that state is synchronized into Kubernetes objects in one or more clusters.</p>
+
+<!--more-->
+
+<ul>
+  <li>
+<a href="#welcome-to-the-joy-of-kubernetes">Welcome to the Joy of Kubernetes</a>
+    <ul>
+      <li><a href="#prerequisites-">Prerequisites 🎨</a></li>
+      <li><a href="#my-git-server-setup">My git server setup</a></li>
+      <li><a href="#using-a-private-git-repo-in-development">Using a private git repo in development</a></li>
+      <li><a href="#installing-argo-cd">Installing Argo CD</a></li>
+      <li>
+<a href="#connecting-to-git-from-argo-cd">Connecting to git from Argo CD</a>
+        <ul>
+          <li><a href="#enable-auth-with-new-key">Enable auth with new key</a></li>
+          <li><a href="#trust-the-server-from-argo-cd">Trust the server from Argo CD</a></li>
+          <li><a href="#add-the-git-repo-in-argo-cd">Add the git repo in Argo CD</a></li>
+        </ul>
+      </li>
+      <li>
+<a href="#application-sets">Application Sets</a>
+        <ul>
+          <li><a href="#the-application-set-for-the-joy-of-kubernetes-series">The application set for The Joy Of Kubernetes Series</a></li>
+          <li><a href="#hello-world-through-our-application-set">Hello World through our Application Set</a></li>
+        </ul>
+      </li>
+      <li><a href="#summary">Summary</a></li>
+      <li><a href="#join-us-next-time-">Join us next time 📺</a></li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="prerequisites-">Prerequisites 🎨</h2>
+
+<ul>
+  <li>
+<del>A canvas, some brushes, and some paint</del>  A kubernetes cluster and kubectl.</li>
+  <li>A private git repo</li>
+  <li>ssh and ssh-keygen</li>
+</ul>
+
+<p>Rather than using kubectl for everything you could perhaps be more comfortable using a graphical interface like <a href="https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard/">the kubernetes dashboard</a>, <a href="https://k8slens.dev/">lens</a> or <a href="https://k9scli.io/">k9s</a> or whatever you prefer. Check them all out and pick what feels good for you. Personally I use k9s.</p>
+
+<p><img src="../assets/2023-04-06-20-54-55.png" alt=""></p>
+
+<h2 id="my-git-server-setup">My git server setup</h2>
+
+<p>So I got this Network Storage server recently and during set up I saw that it came with some cool applications like a git server.</p>
+
+<p><img src="../assets/2023-04-06-17-19-06.png" alt=""></p>
+
+<p>After installation all I really needed to configure was which users in the system could use it. I went ahead and set up ssh to nas and added my public ssh key to authorized_keys of my user in there.</p>
+
+<p><img src="../assets/2023-04-06-17-32-43.png" alt=""></p>
+
+<h2 id="using-a-private-git-repo-in-development">Using a private git repo in development</h2>
+
+<p>Once the server was set up I could initialize new repos and set up local repos to use them as remotes. I wrote a little powershell script that I added to my profile. In the future this will simplify things for me if I choose to add more repos.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kr">Function</span><span class="w"> </span><span class="nf">Init-NasGitRepo</span><span class="w"> </span><span class="p">{</span><span class="w">
+	</span><span class="kr">Param</span><span class="p">([</span><span class="n">Parameter</span><span class="p">(</span><span class="n">Mandatory</span><span class="p">)][</span><span class="n">string</span><span class="p">]</span><span class="nv">$repoName</span><span class="p">)</span><span class="w"> 
+	</span><span class="n">ssh</span><span class="w"> </span><span class="nx">ds</span><span class="err">@</span><span class="nx">nas.local</span><span class="w"> </span><span class="s2">"cd ~/git &amp;&amp; mkdir </span><span class="nv">$repoName</span><span class="s2">.git &amp;&amp; cd </span><span class="nv">$repoName</span><span class="s2">.git &amp;&amp; git init -b main --bare"</span><span class="w">
+	</span><span class="n">git</span><span class="w"> </span><span class="nx">init</span><span class="w"> </span><span class="nt">-b</span><span class="w"> </span><span class="nx">main</span><span class="w">
+	</span><span class="n">git</span><span class="w"> </span><span class="nx">remote</span><span class="w"> </span><span class="nx">add</span><span class="w"> </span><span class="nx">origin</span><span class="w"> </span><span class="s2">"ssh://ds@nas.local/~/git/</span><span class="nv">$repoName</span><span class="s2">.git"</span><span class="w">
+	</span><span class="n">git</span><span class="w"> </span><span class="nx">pull</span><span class="w"> </span><span class="nt">--set-upstream</span><span class="w"> </span><span class="nx">origin</span><span class="w"> </span><span class="nx">main</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p>I went ahead and initilized the git repo we will use in the Joy of Kubernetes series. I implore you to create your own. I might push some or all of the code to the blog repo though if you get stuck.</p>
+
+<p><img src="../assets/2023-04-06-17-31-08.png" alt=""></p>
+
+<p>As you can see I have successfully connected the git repo on NAS as my remote with the name “origin”, let’s get started with an initial commit with README.md and .gitignore.</p>
+
+<p><img src="../assets/2023-04-06-17-55-50.png" alt=""></p>
+
+<h2 id="installing-argo-cd">Installing Argo CD</h2>
+
+<p>Allright now we have all the pieces to interact with git.</p>
+
+<p>Let’s go ahead and install Argo CD on our designated cluster to get started. I will put the code for myself in the git repo but I will execute it manually.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">kubectl</span><span class="w"> </span><span class="nx">create</span><span class="w"> </span><span class="nx">namespace</span><span class="w"> </span><span class="nx">argocd</span><span class="p">;</span><span class="w">
+</span><span class="n">kubectl</span><span class="w"> </span><span class="nx">apply</span><span class="w"> </span><span class="nt">-n</span><span class="w"> </span><span class="nx">argocd</span><span class="w"> </span><span class="nt">-f</span><span class="w"> </span><span class="nx">https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml</span><span class="p">;</span><span class="w">
+</span></code></pre></div></div>
+
+<p>Let’s wait for it to deploy, you can use this command to check the status of the pods for example.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl get pods -n argocd
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>| NAME                                                READY   STATUS    RESTARTS      AGE
+| argocd-redis-8f7689686-w5p7l                        1/1     Running   0             15s
+| argocd-server-5685b99d68-nhzc4                      1/1     Running   0             18s
+| argocd-notifications-controller-56578cd466-gzvsm    1/1     Running   0             22s
+| argocd-applicationset-controller-676749c97d-4mthh   1/1     Running   0             15s
+| argocd-dex-server-68fdffbdb6-tcb4z                  1/1     Running   0             15s
+| argocd-repo-server-658b549674-f4twp                 1/1     Running   0             17s
+| argocd-application-controller-0                     1/1     Running   0             14s
+</code></pre></div></div>
+
+<p>I can see that it has deployed and I will create a port-forward to Argo CD-server to logon.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">kubectl</span><span class="w"> </span><span class="nx">port-forward</span><span class="w"> </span><span class="nx">service/argocd-server</span><span class="w"> </span><span class="nx">8080:80</span><span class="w"> </span><span class="nt">-n</span><span class="w"> </span><span class="nx">argocd</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>| Forwarding from 127.0.0.1:8080 -&gt; 8080
+| Forwarding from [::1]:8080 -&gt; 8080
+| Handling connection for 8080
+| ...
+</code></pre></div></div>
+
+<p><img src="../assets/2023-04-06-18-11-24.png" alt=""></p>
+
+<p>The default admin password can be extracted from a secret like so.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">kubectl</span><span class="w"> </span><span class="nx">get</span><span class="w"> </span><span class="nx">secret</span><span class="w"> </span><span class="nt">-n</span><span class="w"> </span><span class="nx">argocd</span><span class="w"> </span><span class="nx">argocd-initial-admin-secret</span><span class="w"> </span><span class="nt">--output</span><span class="w"> </span><span class="nx">json</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">convertfrom-json</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">select</span><span class="w"> </span><span class="nt">-expandproperty</span><span class="w"> </span><span class="nx">data</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">select</span><span class="w"> </span><span class="nt">-expandproperty</span><span class="w"> </span><span class="nx">password</span><span class="w">
+</span></code></pre></div></div>
+<p><img src="../assets/2023-04-06-18-26-16.png" alt=""></p>
+
+<p>Like all opaque secrets it is base 64 encoded so you can get the password by decoding the output. base64 -d in WSL can do it. <a href="https://marketplace.visualstudio.com/items?itemName=ipedrazas.kubernetes-snippets">I use this plugin to vscode</a> which has built in keyboard shortcuts to encode/decode base64.</p>
+
+<p>After logging on I changed it to a new password that I liked better, (in the future this will be single sign on through keycloak or google).</p>
+
+<p><img src="../assets/2023-04-06-18-27-30.png" alt=""></p>
+
+<p>Once the password was changed I went ahead and dropped the initial password secret from the cluster.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl delete secret -n argocd argocd-initial-admin-secret
+</code></pre></div></div>
+
+<h2 id="connecting-to-git-from-argo-cd">Connecting to git from Argo CD</h2>
+
+<p>Okay so Argo CD is running and we can push to a private git repo, let’s close the loop and let Argo CD interact with that same repo.</p>
+
+<p>We will start by getting the URL to git to give to Argo CD</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git remote get-url origin
+</code></pre></div></div>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>| ssh://ds@nas.local/~/git/joy-of-kubernetes.git
+</code></pre></div></div>
+<p>It is important that you resolve the full URL, there cannot be the ~ symbolic home link in the URL.
+For me this translates to this address. I can’t use the .local domain since kubernetes runs its own network. The DNS I run on the office network however will translate the name properly. You should perhaps take action in your router or pi-hole.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>| ssh://ds@nas/volume1/homes/ds/git/joy-of-kubernetes.git
+</code></pre></div></div>
+
+<p>Instead of signing in with my normal ssh public key I will generate a new keypair. This helps me protect my key while still allowing Argo CD to impersonate me for this particular git server. The private key should not go into git, so let’s add that to our gitignore also.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ssh-keygen -t ed25519 -C "argocd" -f argocdkey -O argocd_ed25519
+"`r`nargocdkey" | Out-File .\.gitignore -Append
+</code></pre></div></div>
+<p>Here is a picture of what it might look like when the new key files have been generated and the private key has been ignored in the repo.</p>
+
+<p><img src="../assets/2023-04-06-18-58-14.png" alt=""></p>
+
+<h3 id="enable-auth-with-new-key">Enable auth with new key</h3>
+
+<p>Firstly we need to tell our git server about our new key.</p>
+
+<p>Add the public key to .ssh/authorized_keys for your user in your server.</p>
+
+<p>In my case I just repeated <a href="#my-git-server-setup">the steps in the intro</a></p>
+
+<h3 id="trust-the-server-from-argo-cd">Trust the server from Argo CD</h3>
+
+<p>Secondly we need to tell Argo CD about the git server, using the ssh known hosts built in functionality.</p>
+
+<p>In the Argo CD web page that we port-forward to, click “settings” and then “Add ssh known hosts” and then follow the instructions.</p>
+
+<p><img src="../assets/2023-04-06-19-02-44.png" alt=""></p>
+
+<blockquote>
+  <p>If you have set up a private git repo you have probably already accepted the host certificate. You can read them from your local known hosts file. It is usually in this place: <code class="language-plaintext highlighter-rouge">~\.ssh\known_hosts</code></p>
+</blockquote>
+
+<p>I added all records I could find of the server and after submitting it looks something like this.</p>
+
+<p><img src="../assets/2023-04-06-19-22-48.png" alt=""></p>
+
+<h3 id="add-the-git-repo-in-argo-cd">Add the git repo in Argo CD</h3>
+
+<p>Lastly, once the known hosts record is in place and the git server can accept the ssh key, we can set up the repo connection in Argo CD</p>
+
+<p>Move back to settings and then click “Connect repo”</p>
+
+<p>Enter a name, default project, the correct full URL to the repo on the server and the private SSH key from the key file we created before.</p>
+
+<p><img src="../assets/2023-04-06-19-25-24.png" alt=""></p>
+
+<p>Click Connect, hopefully everything will be green. Else check the logs for troubleshooting.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">kubectl</span><span class="w"> </span><span class="nx">logs</span><span class="w"> </span><span class="nx">deployment/argocd-repo-server</span><span class="w"> </span><span class="nt">-n</span><span class="w"> </span><span class="nx">argocd</span><span class="w">
+</span></code></pre></div></div>
+<p>Green is good.
+<img src="../assets/2023-04-06-19-25-51.png" alt=""></p>
+
+<h2 id="application-sets">Application Sets</h2>
+
+<p>ApplicationSets are a great way to combine application defintions with generators to produce multiple deployments.</p>
+
+<p>For example</p>
+
+<ul>
+  <li>Each of these apps need to exist in each of these clusters</li>
+  <li>Every app in this directory should use meta data from its location as labels</li>
+</ul>
+
+<p>You can read more about application sets in the <a href="https://argo-cd.readthedocs.io/en/stable/user-guide/application-set/">Argo CD documentation and user guides</a>.</p>
+
+<h3 id="the-application-set-for-the-joy-of-kubernetes-series">The application set for The Joy Of Kubernetes Series</h3>
+
+<p>We can create a folder that will containt the defintions of the applications I want Argo CD to monitor and deploy automatically. We will call it simply “gitops”</p>
+
+<p>Let us create the applicationset that will translate subdirectories to the gitops directory in our repo to individual applications. We will continue using this application set to deploy all the wonderful applications we will create in future installments of this series.</p>
+
+<p>Here is a script that will create the directory, put in the application set defintion, and apply it to your cluster.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># MAKE SURE THIS MATCHES WHAT YOU ADDED TO ARGO CD</span><span class="w">
+</span><span class="nv">$repoUrl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'ssh://ds@nas/volume1/homes/ds/git/joy-of-kubernetes.git'</span><span class="w">
+</span><span class="c"># Create the directory</span><span class="w">
+</span><span class="n">mkdir</span><span class="w"> </span><span class="nx">gitops</span><span class="p">;</span><span class="w">
+</span><span class="c"># Write a file with the application set defitinion</span><span class="w">
+
+</span><span class="sh">@"
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: root-appset
+  namespace: argocd
+spec:
+  generators:
+  - git:
+      repoURL: </span><span class="nv">$repoUrl</span><span class="sh">
+      revision: HEAD
+      directories:
+        - path: gitops/*
+
+  template:
+    metadata:
+      name: '{{path.basename}}'
+      labels:
+        app: "{{path.basename}}"
+        appSet: "root-appset"
+    spec:
+      project: default
+      source:
+        repoURL: </span><span class="nv">$repoUrl</span><span class="sh">
+        targetRevision: HEAD
+        path: '{{path}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{path.basename}}"
+      syncPolicy:
+        automated:
+          selfHeal: false
+        syncOptions:
+        - CreateNamespace=true
+        - ApplyOutOfSyncOnly=true
+
+"@</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">Out-File</span><span class="w"> </span><span class="o">.</span><span class="nx">/gitops/root-appset.yaml</span><span class="p">;</span><span class="w">
+
+</span><span class="c"># Fire that into your cluster</span><span class="w">
+</span><span class="n">kubectl</span><span class="w"> </span><span class="nx">apply</span><span class="w"> </span><span class="nt">-f</span><span class="w"> </span><span class="o">.</span><span class="nx">/gitops/root-appset.yaml</span><span class="p">;</span><span class="w">
+</span></code></pre></div></div>
+
+<p>This defintion we created will put each app in its own namespace which will be automatically created. Furthermore they will be labled with app and appSet.</p>
+
+<p><img src="../assets/2023-04-06-19-42-35.png" alt=""></p>
+
+<p>Argo CD can automatically sync apps for you if you turn that on and it can even prune and heal if the state in kubernetes drifts from the expressed desired state in git. In our example I’ve turned self-heal off but you can add it if you like. <a href="https://argo-cd.readthedocs.io/en/stable/user-guide/auto_sync/">Full guide on Argo CD sync in their documentation</a>.</p>
+
+<p>Going back to the applications page, it looks pretty empty. It is time to put some paint on the canvas.</p>
+
+<p><img src="../assets/2023-04-06-18-28-27.png" alt=""></p>
+
+<h3 id="hello-world-through-our-application-set">Hello World through our Application Set</h3>
+
+<p>Get in touch with your imagination and let’s get typing. We will deploy an nginx hello world application as “joy-of-kubernetes-1”.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="w">
+</span><span class="c"># Adding manifest files. Argo CD will figure out that they are plain manifests, had we put a kustomize structure or helm that would work too</span><span class="w">
+
+</span><span class="n">mkdir</span><span class="w"> </span><span class="o">.</span><span class="nx">/gitops/joy-of-kubernetes-1</span><span class="p">;</span><span class="w">
+
+</span><span class="c"># Deployment</span><span class="w">
+</span><span class="sh">@"
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: joy-of-kubernetes-1
+spec:
+  selector:
+    matchLabels:
+      app: joy-of-kubernetes-1
+  template:
+    metadata:
+      labels:
+        app: joy-of-kubernetes-1
+    spec:
+      containers:
+      - name: joy-of-kubernetes-1
+        image: nginxdemos/hello
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 80
+"@</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">out-file</span><span class="w"> </span><span class="o">.</span><span class="nx">\gitops\joy-of-kubernetes-1\deployment.yaml</span><span class="p">;</span><span class="w">
+
+</span><span class="c"># Service</span><span class="w">
+</span><span class="sh">@"
+kind: Service
+apiVersion: v1
+metadata:
+  name: joy-of-kubernetes-1-svc
+spec:
+  selector:
+    app: joy-of-kubernetes-1
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+
+"@</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">out-file</span><span class="w"> </span><span class="o">.</span><span class="nx">\gitops\joy-of-kubernetes-1\service.yaml</span><span class="p">;</span><span class="w">
+
+</span><span class="c">## Add files to git locally</span><span class="w">
+
+</span><span class="n">git</span><span class="w"> </span><span class="nx">add</span><span class="w"> </span><span class="o">.</span><span class="w">
+
+</span><span class="n">git</span><span class="w"> </span><span class="nx">commit</span><span class="w"> </span><span class="nt">-m</span><span class="w"> </span><span class="s2">"Added the first joy of kubernetes hello world nginx app"</span><span class="w">
+
+</span></code></pre></div></div>
+
+<p>Now our history will look something like this. For my sake I went ahead and added an ingress route for traefik, the ingress controller that comes bundled with k3s. If you are new to ingress or are using something else you can safely ignore it. You add what ever you like for your application. It is your world, get creative. 🏔🌄⛰🏔🗻🌲🌲</p>
+
+<p><img src="../assets/2023-04-06-19-56-56.png" alt=""></p>
+
+<p>Now once this commit is pushed to origin we will start to see things happening in the Argo CD UI.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code># update origin so that Argo CD can see the changes
+git push
+</code></pre></div></div>
+
+<p>There it is, the application overview is automatically  updated. We can click on it to get details.</p>
+
+<p><img src="../assets/2023-04-06-20-01-20.png" alt=""></p>
+
+<p>Look at that happy little app.</p>
+
+<p><img src="../assets/2023-04-06-20-01-59.png" alt=""></p>
+
+<p>Let’s give it a visit with port forwarding like we have done for Argo CD.</p>
+
+<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">kubectl</span><span class="w"> </span><span class="nx">port-forward</span><span class="w"> </span><span class="nx">deployment/joy-of-kubernetes-1</span><span class="w"> </span><span class="nx">8081:80</span><span class="w"> </span><span class="nt">-n</span><span class="w"> </span><span class="nx">joy-of-kubernetes-1</span><span class="w">
+</span></code></pre></div></div>
+
+<p><img src="../assets/2023-04-06-20-03-30.png" alt=""></p>
+
+<p><img src="../assets/2023-04-06-20-04-22.png" alt=""></p>
+
+<p>As I in my deployment also specified an ingress route for traefik and have certificates set up, I can just jump in without port forwarding.</p>
+
+<p><img src="../assets/2023-04-06-20-13-43.png" alt=""></p>
+
+<h2 id="summary">Summary</h2>
+
+<p>In this post we’ve looked at how we can connect to private git repos with ssh. We’ve leveraged this to get a gitops workflow in place with Argo CD and deployed a hello world application. All while passing the Bob Ross vibe check. This is the Joy of Kubernetes.</p>
+
+<h2 id="join-us-next-time-">Join us next time 📺</h2>
+
+<p>To learn about automatic certificate generation with cert-manager in kubernetes using the Let’s Encrypt Issuer, look out for the next entry in this series.</p>
+
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-sa/4.0">
+    <span>
+        <b>David Söderlund</b>
+    </span>
+    
+    <span>© 2025</span>
+  </a>
+</footer>
+
+  
+    <script type="text/javascript">
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+  ga('create', 'UA-263169605-1', 'auto');
+  ga('send', 'pageview');
+</script>
+  
+</body>
+
+</html>

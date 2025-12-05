@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+
+  <title>cdk8s through ArgoCD</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="alternate" type="application/atom+xml" href="/feed.xml">
+</head>
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    <h1>blog.dsoderlund.consulting</h1>
+    </a>
+    <div class="header-links">
+      <a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>cdk8s through ArgoCD</h2>
+  <time datetime="2024-06-06T00:00:00+00:00" class="by-line">06 Jun 2024</time>
+  <ul>
+  <li>
+<a href="#automatic-deployment-of-kubernetes-manifests-described-by-cdk8s">Automatic deployment of kubernetes manifests described by cdk8s</a>
+    <ul>
+      <li><a href="#argocd-in-short">ArgoCD in short</a></li>
+      <li>
+<a href="#cdk8s-in-short">cdk8s in short</a>
+        <ul>
+          <li><a href="#an-example">An example</a></li>
+        </ul>
+      </li>
+      <li>
+<a href="#adding-a-cdk8s-plugin-to-argocd">Adding a cdk8s plugin to ArgoCD</a>
+        <ul>
+          <li><a href="#dockerfile">Dockerfile</a></li>
+          <li><a href="#plugging-in-as-an-argo-repo-server-sidecar">Plugging in as an argo-repo-server sidecar</a></li>
+          <li><a href="#results-when-using-the-plugin">Results when using the plugin</a></li>
+          <li><a href="#argocd-documentation-and-further-reading">ArgoCD documentation and further reading</a></li>
+        </ul>
+      </li>
+      <li><a href="#the-point-of-all-this">The point of all this</a></li>
+    </ul>
+  </li>
+</ul>
+
+<h1 id="automatic-deployment-of-kubernetes-manifests-described-by-cdk8s">Automatic deployment of kubernetes manifests described by cdk8s</h1>
+
+<p>cdk8s is a tool from AWS to be able to deal with kubernetes manifests in an imperative way which for a lot of people accelerates their investment in learning about and using kubernetes. Though not perhaps inline with the declarative nature of traditional gitops approaches, it is not really that different from jsonnet, helm and/or kustomize which I think simplifies a lot in terms of expressing not only what we want deployed but also how to best manage changes to that state.</p>
+
+<h2 id="argocd-in-short">ArgoCD in short</h2>
+
+<p>Chances are if you are reading this you already know a bit about <a href="https://argo-cd.readthedocs.io/en/stable/">ArgoCD</a>. It allows us to package kubernetes manifests in “applications” which helps to compartmentalize things that you are managing inside kubernetes as well as giving a cli and a UI in that abstraction level. For each application we can choose how we want ArgoCD to observe and synchronize the declared state of our application from git to kubernetes.</p>
+
+<h2 id="cdk8s-in-short">cdk8s in short</h2>
+
+<p><a href="https://cdk8s.io/">cdk8s</a> and similar tools allows you to generate the kubernetes json or yaml in a way that is a bit more advanced than kustomize. Where as helm is a way to package apps for different types of consumption, and kustomize allows you to manipulate simple yaml further, cdk8s is a more heavy weight ground up yaml generation in different high level languages.</p>
+
+<p>In my example I am generating a deployment and a service with typescript, while also adding some extra npm packages for string manipulation.</p>
+
+<h3 id="an-example">An example</h3>
+
+<div class="language-typescript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// A typescript app that when run through `cdk8s synth` becomes a deployment and a service</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">Construct</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">constructs</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">App</span><span class="p">,</span> <span class="nx">Chart</span><span class="p">,</span> <span class="nx">ChartProps</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">cdk8s</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span>
+  <span class="nx">IntOrString</span><span class="p">,</span>
+  <span class="nx">KubeDeployment</span><span class="p">,</span>
+  <span class="nx">KubeService</span><span class="p">,</span>
+  <span class="nx">Quantity</span><span class="p">,</span>
+<span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">./imports/k8s</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">kebabCase</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">lodash</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="k">export</span> <span class="kd">class</span> <span class="nx">MyChart</span> <span class="kd">extends</span> <span class="nx">Chart</span> <span class="p">{</span>
+  <span class="kd">constructor</span><span class="p">(</span>
+    <span class="nx">scope</span><span class="p">:</span> <span class="nx">Construct</span><span class="p">,</span>
+    <span class="nx">id</span><span class="p">:</span> <span class="kr">string</span><span class="p">,</span>
+    <span class="nx">props</span><span class="p">:</span> <span class="nx">ChartProps</span> <span class="o">=</span> <span class="p">{</span> <span class="na">disableResourceNameHashes</span><span class="p">:</span> <span class="kc">true</span> <span class="p">}</span>
+  <span class="p">)</span> <span class="p">{</span>
+    <span class="k">super</span><span class="p">(</span><span class="nx">scope</span><span class="p">,</span> <span class="nx">id</span><span class="p">,</span> <span class="nx">props</span><span class="p">);</span>
+
+    <span class="kd">const</span> <span class="nx">label</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="na">app</span><span class="p">:</span> <span class="dl">"</span><span class="s2">cdk8s-demo</span><span class="dl">"</span><span class="p">,</span>
+      <span class="na">demo</span><span class="p">:</span> <span class="nx">kebabCase</span><span class="p">(</span><span class="dl">"</span><span class="s2">knowledge sharing</span><span class="dl">"</span><span class="p">),</span>
+    <span class="p">};</span>
+    <span class="k">new</span> <span class="nx">KubeDeployment</span><span class="p">(</span><span class="k">this</span><span class="p">,</span> <span class="dl">"</span><span class="s2">deployment</span><span class="dl">"</span><span class="p">,</span> <span class="p">{</span>
+      <span class="na">spec</span><span class="p">:</span> <span class="p">{</span>
+        <span class="na">selector</span><span class="p">:</span> <span class="p">{</span> <span class="na">matchLabels</span><span class="p">:</span> <span class="nx">label</span> <span class="p">},</span>
+        <span class="na">replicas</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="na">template</span><span class="p">:</span> <span class="p">{</span>
+          <span class="na">metadata</span><span class="p">:</span> <span class="p">{</span> <span class="na">labels</span><span class="p">:</span> <span class="nx">label</span> <span class="p">},</span>
+          <span class="na">spec</span><span class="p">:</span> <span class="p">{</span>
+            <span class="na">containers</span><span class="p">:</span> <span class="p">[</span>
+              <span class="p">{</span>
+                <span class="na">name</span><span class="p">:</span> <span class="dl">"</span><span class="s2">echoserver</span><span class="dl">"</span><span class="p">,</span>
+                <span class="na">image</span><span class="p">:</span> <span class="dl">"</span><span class="s2">ealen/echo-server:latest</span><span class="dl">"</span><span class="p">,</span>
+                <span class="na">ports</span><span class="p">:</span> <span class="p">[{</span> <span class="na">containerPort</span><span class="p">:</span> <span class="mi">80</span> <span class="p">}],</span>
+                <span class="na">resources</span><span class="p">:</span> <span class="p">{</span>
+                  <span class="na">limits</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="na">cpu</span><span class="p">:</span> <span class="nx">Quantity</span><span class="p">.</span><span class="nx">fromString</span><span class="p">(</span><span class="dl">"</span><span class="s2">0.5</span><span class="dl">"</span><span class="p">),</span>
+                    <span class="na">memory</span><span class="p">:</span> <span class="nx">Quantity</span><span class="p">.</span><span class="nx">fromString</span><span class="p">(</span><span class="dl">"</span><span class="s2">256Mi</span><span class="dl">"</span><span class="p">),</span>
+                  <span class="p">},</span>
+                  <span class="na">requests</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="na">cpu</span><span class="p">:</span> <span class="nx">Quantity</span><span class="p">.</span><span class="nx">fromString</span><span class="p">(</span><span class="dl">"</span><span class="s2">10m</span><span class="dl">"</span><span class="p">),</span>
+                    <span class="na">memory</span><span class="p">:</span> <span class="nx">Quantity</span><span class="p">.</span><span class="nx">fromString</span><span class="p">(</span><span class="dl">"</span><span class="s2">10Mi</span><span class="dl">"</span><span class="p">),</span>
+                  <span class="p">},</span>
+                <span class="p">},</span>
+              <span class="p">},</span>
+            <span class="p">],</span>
+          <span class="p">},</span>
+        <span class="p">},</span>
+      <span class="p">},</span>
+    <span class="p">});</span>
+    <span class="k">new</span> <span class="nx">KubeService</span><span class="p">(</span><span class="k">this</span><span class="p">,</span> <span class="dl">"</span><span class="s2">service</span><span class="dl">"</span><span class="p">,</span> <span class="p">{</span>
+      <span class="na">spec</span><span class="p">:</span> <span class="p">{</span>
+        <span class="na">type</span><span class="p">:</span> <span class="dl">"</span><span class="s2">ClusterIP</span><span class="dl">"</span><span class="p">,</span>
+        <span class="na">ports</span><span class="p">:</span> <span class="p">[{</span> <span class="na">port</span><span class="p">:</span> <span class="mi">80</span><span class="p">,</span> <span class="na">targetPort</span><span class="p">:</span> <span class="nx">IntOrString</span><span class="p">.</span><span class="nx">fromNumber</span><span class="p">(</span><span class="mi">80</span><span class="p">)</span> <span class="p">}],</span>
+        <span class="na">selector</span><span class="p">:</span> <span class="nx">label</span><span class="p">,</span>
+      <span class="p">},</span>
+    <span class="p">});</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">const</span> <span class="nx">app</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">App</span><span class="p">();</span>
+<span class="k">new</span> <span class="nx">MyChart</span><span class="p">(</span><span class="nx">app</span><span class="p">,</span> <span class="dl">"</span><span class="s2">cdk8s-demo</span><span class="dl">"</span><span class="p">);</span>
+<span class="nx">app</span><span class="p">.</span><span class="nx">synth</span><span class="p">();</span>
+</code></pre></div></div>
+
+<p>After <code class="language-plaintext highlighter-rouge">cdk8s synth</code> which in the repo would be run as <code class="language-plaintext highlighter-rouge">npm run synth</code> there will be a file in the <code class="language-plaintext highlighter-rouge">dist</code> folder that looks like this. It is ready for deployment with <code class="language-plaintext highlighter-rouge">kubectl apply</code></p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cdk8s-demo-deployment</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">replicas</span><span class="pi">:</span> <span class="m">1</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">app</span><span class="pi">:</span> <span class="s">cdk8s-demo</span>
+      <span class="na">demo</span><span class="pi">:</span> <span class="s">knowledge-sharing</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">labels</span><span class="pi">:</span>
+        <span class="na">app</span><span class="pi">:</span> <span class="s">cdk8s-demo</span>
+        <span class="na">demo</span><span class="pi">:</span> <span class="s">knowledge-sharing</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">containers</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">image</span><span class="pi">:</span> <span class="s">ealen/echo-server:latest</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">echoserver</span>
+          <span class="na">ports</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="na">containerPort</span><span class="pi">:</span> <span class="m">80</span>
+          <span class="na">resources</span><span class="pi">:</span>
+            <span class="na">limits</span><span class="pi">:</span>
+              <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">0.5"</span>
+              <span class="na">memory</span><span class="pi">:</span> <span class="s">256Mi</span>
+            <span class="na">requests</span><span class="pi">:</span>
+              <span class="na">cpu</span><span class="pi">:</span> <span class="s">10m</span>
+              <span class="na">memory</span><span class="pi">:</span> <span class="s">10Mi</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Service</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cdk8s-demo-service</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">ports</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">port</span><span class="pi">:</span> <span class="m">80</span>
+      <span class="na">targetPort</span><span class="pi">:</span> <span class="m">80</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">app</span><span class="pi">:</span> <span class="s">cdk8s-demo</span>
+    <span class="na">demo</span><span class="pi">:</span> <span class="s">knowledge-sharing</span>
+  <span class="na">type</span><span class="pi">:</span> <span class="s">ClusterIP</span>
+
+</code></pre></div></div>
+
+<h2 id="adding-a-cdk8s-plugin-to-argocd">Adding a cdk8s plugin to ArgoCD</h2>
+
+<p>While learning about cdk8s I was surprised to learn that it didn’t work out of the box with ArgoCD, and that I couldn’t find any pre-made plugins.</p>
+
+<p>I did however come across <a href="https://shipit.dev/posts/integrating-cdk8s-with-argocd.html">this great post about cdk8s by Max Brenner</a> and also <a href="https://github.com/brennerm/cdk8s-docker">their repository on how to run cdk8s in a container</a>.</p>
+
+<h3 id="dockerfile">Dockerfile</h3>
+
+<p>From there I built my own version of the typescript container such that it would work without running as root which ArgoCD plugins are not allowed to do for good reason.</p>
+
+<div class="language-Dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># docker.io/dsoderlund/cdk8s:typescript</span>
+<span class="k">FROM</span><span class="s"> node:alpine</span>
+
+<span class="k">RUN </span>yarn global add cdk8s-cli <span class="o">&amp;&amp;</span> yarn cache clean
+<span class="k">RUN </span><span class="nb">mkdir</span> /files 
+<span class="k">RUN </span><span class="nb">mkdir</span> /home/node/.npm-cache
+<span class="k">RUN </span><span class="nb">chown</span> <span class="nt">-R</span> 999:0 /home/node/.npm-cache
+<span class="k">WORKDIR</span><span class="s"> /files</span>
+
+<span class="k">ADD</span><span class="s"> entrypoint-typescript.sh /entrypoint.sh</span>
+
+<span class="k">ENV</span><span class="s"> NPM_CONFIG_CACHE=/home/node/.npm-cache</span>
+<span class="k">ENTRYPOINT</span><span class="s"> ["/entrypoint.sh"]</span>
+</code></pre></div></div>
+
+<p>The entrypoint.sh script allows you to run this from the command line and get it to perform the steps needed to work with write back to a volume you mount to docker, in the case of the plugin we will override this command.</p>
+
+<h3 id="plugging-in-as-an-argo-repo-server-sidecar">Plugging in as an argo-repo-server sidecar</h3>
+
+<p>So the idea here is that we want ArgoCD repository server to render the yaml for us by invoking <code class="language-plaintext highlighter-rouge">cdk8s synth</code> for an app just like it does for helm, kustomize, or plain yaml. ArgoCD should do this if it can tell that it is seeing a cdk8s-typescript style application. This will be evident by the presence of the file <code class="language-plaintext highlighter-rouge">./imports/k8s.ts</code>.</p>
+
+<p>The execution has three parts, init, command, and discover.</p>
+
+<ul>
+  <li>
+    <p>Init will run before anything else to make preparations. <code class="language-plaintext highlighter-rouge">npm install</code> will make sure the container has everything needed to perform the <code class="language-plaintext highlighter-rouge">cdk8s synth</code> step. This will be cached in the container and kept for future ArgoCD synchs of the app.</p>
+  </li>
+  <li>
+    <p>Command executes the synth, ignores any direct output, and then reads the resulting file(s) from the dist folder.</p>
+  </li>
+  <li>
+    <p>Discover helps repo-server know that this is infact a cdk8s-typescript style application and that this plugin applies.</p>
+  </li>
+</ul>
+
+<p>There is a working example you can clone and run in <a href="https://github.com/QuadmanSWE/ds-ref-platform/blob/main/2_platform/argocd/kustomization.yaml">my reference platform github repo</a>.</p>
+
+<p>This is an excerpt of that working example that highlights the parts that configures and injects the plugin.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># ... Removed for brevity, imagine an ArgoCD helm values declaration.</span>
+<span class="na">configs</span><span class="pi">:</span>
+  <span class="na">cmp</span><span class="pi">:</span>
+    <span class="na">create</span><span class="pi">:</span> <span class="no">true</span>
+    <span class="na">plugins</span><span class="pi">:</span>
+      <span class="na">cdk8s-typescript</span><span class="pi">:</span>
+        <span class="na">init</span><span class="pi">:</span>
+          <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">sh"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">-c"</span><span class="pi">]</span>
+          <span class="na">args</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="pi">&gt;</span>
+              <span class="s">echo "init cdk8s-typescript" &amp;&amp;</span>
+              <span class="s">npm install</span>
+        <span class="na">generate</span><span class="pi">:</span>
+          <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">sh"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">-c"</span><span class="pi">]</span>
+          <span class="na">args</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="pi">&gt;</span>
+              <span class="s">cdk8s synth &gt; /dev/null &amp;&amp;</span>
+              <span class="s">cat dist/*</span>
+        <span class="na">discover</span><span class="pi">:</span>
+          <span class="na">fileName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">./imports/k8s.ts"</span>
+<span class="na">repoServer</span><span class="pi">:</span>
+  <span class="na">extraContainers</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">cdk8s-typescript</span>
+      <span class="na">command</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">/var/run/argocd/argocd-cmp-server"</span>
+      <span class="na">image</span><span class="pi">:</span> <span class="s">docker.io/dsoderlund/cdk8s:typescript</span>
+      <span class="na">securityContext</span><span class="pi">:</span>
+        <span class="na">runAsNonRoot</span><span class="pi">:</span> <span class="no">true</span>
+        <span class="na">runAsUser</span><span class="pi">:</span> <span class="m">999</span>
+      <span class="na">volumeMounts</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/tmp</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">cmp-tmp</span>
+        <span class="pi">-</span> <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/var/run/argocd</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">var-files</span>
+        <span class="pi">-</span> <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/home/argocd/cmp-server/plugins</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">plugins</span>
+        <span class="pi">-</span> <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/home/argocd/cmp-server/config/plugin.yaml</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">argocd-cmp-cm</span>
+          <span class="na">subPath</span><span class="pi">:</span> <span class="s">cdk8s-typescript.yaml</span>
+  <span class="na">volumes</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">argocd-cmp-cm</span>
+      <span class="na">configMap</span><span class="pi">:</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">argocd-cmp-cm</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">cmp-tmp</span>
+      <span class="na">emptyDir</span><span class="pi">:</span> <span class="pi">{}</span>
+</code></pre></div></div>
+
+<h3 id="results-when-using-the-plugin">Results when using the plugin</h3>
+
+<p>Here is what the running app looks like through ArgoCD.</p>
+
+<p><img src="../assets/2024-06-06-15-03-01.png" alt=""></p>
+
+<h3 id="argocd-documentation-and-further-reading">ArgoCD documentation and further reading</h3>
+
+<p><a href="https://argo-cd.readthedocs.io/en/stable/operator-manual/config-management-plugins/">Here is the docs for how these config management plugins works.</a> I also recommend reading <a href="https://dev.to/ali_nazari_f9773d74e0b0e4/using-cdk8s-ytt-or-gomplate-with-argocd-through-config-management-plugins-4f6g">this</a> and <a href="https://codefresh.io/blog/using-argo-cds-new-config-management-plugins-to-build-kustomize-helm-and-more/">this</a> article which though using different approaches and a bit different end results than what I am after, do a great job in explaining what all the different parts are.</p>
+
+<h2 id="the-point-of-all-this">The point of all this</h2>
+
+<p>The act of making sure an application or piece of infrastructure is deployed as desired is the key of gitops, it should not have too strong oppinions on how to express that desired state as long as it can be rendered into clear, straightforward, nonambiguous yaml.</p>
+
+<p>Thus if we are managing a gitops solution we can create a great experience in managing both applications and infrastructure with rich high level tools without sacrificing the reconciliation loop of kubernetes.</p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-sa/4.0">
+    <span>
+        <b>David Söderlund</b>
+    </span>
+    
+    <span>© 2025</span>
+  </a>
+</footer>
+
+  
+    <script type="text/javascript">
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+  ga('create', 'UA-263169605-1', 'auto');
+  ga('send', 'pageview');
+</script>
+  
+</body>
+
+</html>
