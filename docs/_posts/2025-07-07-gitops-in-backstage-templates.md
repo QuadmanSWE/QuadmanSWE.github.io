@@ -119,7 +119,7 @@ Again, the point here is that the backstage template will create a new file with
 
 One could conceivably construct a helm chart but at that point you are making things complicated without the fun part which is what this post is all about!
 
-It then dawned on me that I already have the ~~perfect~~ solution from [my post about cdk8s in argocd](./cdks8s-through-argocd).
+It then dawned on me that I already have the ~~perfect~~ solution from [my post about cdk8s in argocd](./cdk8s-through-argocd).
 
 ### cdk8s
 
