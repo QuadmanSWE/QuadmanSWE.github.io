@@ -26,6 +26,7 @@ I frequent tech meetups, and am an occasional speaker.
 * Azure Infrastructure
 * Azure Devops Pipelines
 * Docker
+* Podman
 * Kubernetes
 * Istio
 * Keycloak
@@ -36,6 +37,14 @@ I frequent tech meetups, and am an occasional speaker.
 * Typescript
 * NodeJS
 * React
+
+## Alfa Laval
+### DevOps
+`october 2025 - present`
+
+I was brought into the team that deliver the Customer & Partner Portal for Alfa Laval. My role is partially helping my team out with infrastructure as code, CI/CD pipelines, architecture and strategy around how we deliver our system. In addition to this however the role has grown into collaboration with other stream-aligned teams but also platform teams in the organization to spread knowledge and reduce disparity in solutions that help bring our systems into the hands of our customers and other stakeholders.
+
+The technologies that I have gotten a chance to use the most are terraform with terragrunt for our infra, Azure Devops Pipelines for our continuous delivery, docker and podman for containerization, and Azure itself for our daily operations.
 
 ## Home lab
 ### Everything manager
