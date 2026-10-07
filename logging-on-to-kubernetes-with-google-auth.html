@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+
+  <title>Logging on to Kubernetes with Google auth</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="alternate" type="application/atom+xml" href="/feed.xml">
+</head>
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    <h1>blog.dsoderlund.consulting</h1>
+    </a>
+    <div class="header-links">
+      <a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Logging on to Kubernetes with Google auth</h2>
+  <time datetime="2026-10-07T00:00:00+00:00" class="by-line">07 Oct 2026</time>
+  <p>How do you use an external identity provider to get single sign on to your own Kubernetes cluster?</p>
+
+<!--more-->
+
+<h2 id="perhaps-everyone-should-not-always-be-admin">Perhaps everyone should not always be admin</h2>
+
+<p>kube-apiserver, works like a typical api server, you call endpoints with valid certificates or JSON Web Tokens, claims get mapped and requests get authorized.</p>
+
+<p>If you have ever set up a Kubernetes cluster from scratch you probably know that your kubeconfig file gets populated with clusters, users, and contexts binding those two together. If you ever looked inside the user it holds your certificate which authenticates you to your cluster and when you use kubectl you get to do everything!</p>
+
+<p>What if you don’t want everyone to be able to do everything though?
+Perhaps you want to implement role based access control?
+Perhaps you want hand someone a limited time access for a particular set of resources?</p>
+
+<p>It turns out you can get kubectl to not just use tokens instead of certificates but also run a command to produce said tokens. Perfect if you ever have used openid connect.</p>
+
+<h2 id="setting-up-the-google-auth-client">Setting up the Google Auth Client</h2>
+
+<p>I started by creating new client credentials for my homelab project in google cloud.
+I surfed to something like <code class="language-plaintext highlighter-rouge">https://console.cloud.google.com/auth/clients?project=my-k8s-home-lab</code> where the project was, created a new desktop client, wrote down the client_id and client_secret.</p>
+
+<h2 id="creating-the-role-binding-in-kubernetes">Creating the role binding in Kubernetes</h2>
+
+<p>After that I added the same information into the config map of kube-apiserver (foreshadowing, that didn’t work).</p>
+
+<p>Then I deployed a role and a rolebinding:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># role that grants read to all resources in the "office" namespace</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Role</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">ds-role</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">office</span>
+<span class="na">rules</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">*"</span><span class="pi">]</span>
+    <span class="na">resources</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">*"</span><span class="pi">]</span>
+    <span class="na">verbs</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">get"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">watch"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">list"</span><span class="pi">]</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">RoleBinding</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">ds-role-binding</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">office</span>
+<span class="na">subjects</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="na">kind</span><span class="pi">:</span> <span class="s">User</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">ds@dsoderlund.consulting</span>
+  <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io</span>
+<span class="na">roleRef</span><span class="pi">:</span>
+  <span class="na">kind</span><span class="pi">:</span> <span class="s">Role</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">ds-role</span>
+  <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io</span>
+</code></pre></div></div>
+
+<p>This means that anyone that shows up with valid credentials to get the user name <code class="language-plaintext highlighter-rouge">ds@dsoderlund.consulting</code> (thats me) would be able to view anything in the <code class="language-plaintext highlighter-rouge">office</code> namespace.</p>
+
+<h2 id="getting-a-token-as-valid-credentials">Getting a token as valid credentials</h2>
+
+<p>Enter the <a href="https://github.com/int128/kubelogin">oidc-login</a> kubectl plugin.</p>
+
+<p>After installation came some fun troubleshooting on how to actually use it with google. The first insight was that oidc-issuer-url should be exactly <code class="language-plaintext highlighter-rouge">https://accounts.google.com</code> and not anything else. Took longer than I am willing to admit to figure out.</p>
+
+<p>After some trial and error with <code class="language-plaintext highlighter-rouge">kubectl oidc-login get-token</code> I could get the generation of an actual token to work, and even though I couldn’t use it in Kubernetes yet it lead me to the next insight,the email was missing in my JWT.</p>
+
+<p>Here is what finally ended up working for me in my kubeconfig file. I may have had to do some changes to scopes in my client in google. Not sure if it had any effect.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">ds</span>
+  <span class="na">user</span><span class="pi">:</span>
+    <span class="na">exec</span><span class="pi">:</span>
+      <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">client.authentication.k8s.io/v1</span>
+      <span class="na">command</span><span class="pi">:</span> <span class="s">kubectl</span>
+      <span class="na">interactiveMode</span><span class="pi">:</span> <span class="s">Never</span>
+      <span class="na">args</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s">oidc-login</span>
+        <span class="pi">-</span> <span class="s">get-token</span>
+        <span class="pi">-</span> <span class="s">--oidc-issuer-url=https://accounts.google.com</span>
+        <span class="pi">-</span> <span class="s">--oidc-client-id=my-client.apps.googleusercontent.com</span>
+        <span class="pi">-</span> <span class="s">--oidc-client-secret=my-secret</span>
+        <span class="pi">-</span> <span class="s">--oidc-extra-scope=email</span>
+</code></pre></div></div>
+
+<p>Anyway, I added the argument to include this scope and now we got a new error message from kube-apiserver that the bearer token was invalid.</p>
+
+<h2 id="configuring-kube-apiserver-for-oidc-in-static-pod-manifest">Configuring kube-apiserver for oidc in static pod manifest</h2>
+
+<p>So it turns out that just changing the config map for a cluster created with kubeadm doesn’t actually affect kube-apiserver because it is run as static pod using the manifests in <code class="language-plaintext highlighter-rouge">/etc/Kubernetes/manifests/kube-apiserver.yaml</code> so the arguments on which issuer to trust and how to map claims had to be done in command line arguments to how kube-apiserver even starts!</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>nano /etc/Kubernetes/manifests/kube-apiserver.yaml
+
+<span class="c">#</span>
+    - <span class="nt">--oidc-issuer-url</span><span class="o">=</span>https://accounts.google.com
+    - <span class="nt">--oidc-client-id</span><span class="o">=</span>my-client.apps.googleusercontent.com
+    - <span class="nt">--oidc-username-claim</span><span class="o">=</span>email
+<span class="c">#</span>
+</code></pre></div></div>
+
+<p>Once the proper configuration was in there it started to actually trying to log me in.</p>
+
+<p><img src="../assets/2026-10-07-23-02-18.png" alt="authenticated-and-authorized"></p>
+
+<p>Other interesting findings:</p>
+<ol>
+  <li>verbs should always be lowercase when defining roles.</li>
+  <li>you can use <code class="language-plaintext highlighter-rouge">kubectl oidc-login clean</code> to forget a token you generated, useful if you are messing around with your client or other configurations that means your token might not be what you want (missing email for example).</li>
+</ol>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-sa/4.0">
+    <span>
+        <b>David Söderlund</b>
+    </span>
+    
+    <span>© 2026</span>
+  </a>
+</footer>
+
+  
+    <script type="text/javascript">
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+  ga('create', 'UA-263169605-1', 'auto');
+  ga('send', 'pageview');
+</script>
+  
+</body>
+
+</html>
