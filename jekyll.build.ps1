@@ -6,6 +6,12 @@ param(
     [parameter()][int]$cutoffMinutes = 5,
     [switch]$wait
 )
+$script:JekyllImage = "docker.io/jekyll/jekyll:$($jekyllversion)"
+$script:ContainerRuntime = icm {
+    if (Get-Command docker -ea 0) {'docker'}
+    elseif (Get-Command podman -ea 0) {'podman'}
+    else {throw 'could not find podman or docker'}
+}
 $rootdir = git rev-parse --show-toplevel
 task proofread {
     $learntospellyoudunce = @("kubernets", "kuberen", "oath", "serer", "challange", "kubernetetes")
@@ -21,7 +27,7 @@ task new {
     New-Item -ItemType Directory -ErrorAction SilentlyContinue -Path docs | Out-Null
     push-location $rootdir/docs
     #new
-    docker run --rm -it --volume="$($PWD):/srv/jekyll" --env JEKYLL_ENV=production jekyll/jekyll:4 jekyll new . --force
+    & $script:ContainerRuntime run --rm -it --volume="$($PWD):/srv/jekyll" --env JEKYLL_ENV=production $script:JekyllImage jekyll new . --force
 
     Pop-Location
 }
@@ -32,18 +38,18 @@ task build {
     }
     Push-Location $rootdir/docs
     #build
-    docker run --rm -it --volume="$($PWD):/srv/jekyll" --volume="$PWD/vendor/bundle:/usr/local/bundle" --env JEKYLL_ENV=production jekyll/jekyll:$jekyllversion /bin/sh -c "bundle install && jekyll build"
+    & $script:ContainerRuntime run --rm -it --volume="$($PWD):/srv/jekyll" --volume="$PWD/vendor/bundle:/usr/local/bundle" --env JEKYLL_ENV=production $script:JekyllImage /bin/sh -c "bundle install && jekyll build"
     Pop-Location
     
 
 }
 
 task remove stop, {
-    icm { docker rm $servecontainername } -ea 0
+    icm { & $script:ContainerRuntime rm $servecontainername } -ea 0
 }
 
 task stop {
-    icm { docker stop $servecontainername } -ea 0  
+    icm { & $script:ContainerRuntime stop $servecontainername } -ea 0  
 }
 
 task serve stop, remove, {
@@ -53,7 +59,7 @@ task serve stop, remove, {
     else {
         Push-Location $rootdir/docs
         #serve
-        docker run -d --name $servecontainername --volume="$($PWD):/srv/jekyll" --volume="$PWD/vendor/bundle:/usr/local/bundle" --env JEKYLL_ENV=development -p 4000:4000 jekyll/jekyll:$jekyllversion jekyll serve --watch --drafts
+        & $script:ContainerRuntime run -d --name $servecontainername --volume="$($PWD):/srv/jekyll" --volume="$PWD/vendor/bundle:/usr/local/bundle" --env JEKYLL_ENV=development -p 4000:4000 jekyll/jekyll:$jekyllversion jekyll serve --watch --drafts
 
         Pop-Location
         $tries = 15;
