@@ -2,7 +2,7 @@
 title: Logging on to Kubernetes with Google auth
 published: true
 excerpt_separator: <!--more-->
-tags: auth iam oidc kubernetes google rbac kubectl
+tags: authz iam oidc kubernetes google rbac kubectl
 ---
 
 How do you use an external identity provider to get single sign on to your own Kubernetes cluster?
