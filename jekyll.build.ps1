@@ -59,7 +59,7 @@ task serve stop, remove, {
     else {
         Push-Location $rootdir/docs
         #serve
-        & $script:ContainerRuntime run -d --name $servecontainername --volume="$($PWD):/srv/jekyll" --volume="$PWD/vendor/bundle:/usr/local/bundle" --env JEKYLL_ENV=development -p 4000:4000 jekyll/jekyll:$jekyllversion jekyll serve --watch --drafts
+        & $script:ContainerRuntime run -d --name $servecontainername --volume="$($PWD):/srv/jekyll" --volume="$PWD/vendor/bundle:/usr/local/bundle" --env JEKYLL_ENV=development --env JEKYLL_ROOTLESS=1 -p 4000:4000 $script:JekyllImage sh -c "jekyll serve --watch --drafts --host 0.0.0.0"
 
         Pop-Location
         $tries = 15;
