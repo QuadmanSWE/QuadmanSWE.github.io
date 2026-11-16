@@ -7,7 +7,7 @@ title: About
 |---|---|
 |
 
-I am an independent Platform Engineering Consultant - I keep the peace between humans and computers. To read more about me and what I've done in the past you should check out my <a href="../cv">CV</a>. There you can also find more ways to get in touch with me. | ![](/assets/me.jpg) |
+I am an independent Platform Engineering Consultant - I keep the peace between humans and computers. To read more about me and what I've done in the past you should check out my <a href="../cv">CV</a>. There you can also find more ways to get in touch with me. | ![](/assets/me_2026.jpg) |
 
 ---
 
